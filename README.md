@@ -22,7 +22,13 @@ python3 -m ai_open_source_daily --root . --date 2026-10-01 --offline
 
 日报中的新增 Star 是固定采集时刻的快照差值，因此会在 Star 被取消时体现为净减少。RSS 来源失败会写入日报警告，不会阻止项目榜生成。
 
-## 每天 09:00 运行（macOS）
+## GitHub Actions 每天 09:00 自动更新
+
+仓库内置 GitHub Actions，使用 `01:00 UTC`（中国时间 09:00）运行，自动更新 `reports/` 和 `data/snapshots/` 并提交到 `main`。也可以在仓库的 **Actions → Daily AI open-source report → Run workflow** 手动触发。
+
+GitHub Actions 使用内置 `GITHUB_TOKEN` 访问公开 API，不需要额外配置个人 Token。GitHub 的定时任务可能有少量排队延迟。
+
+## 本地每天 09:00 运行（macOS）
 
 ```bash
 ./scripts/install_launchd.sh

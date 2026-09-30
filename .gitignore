@@ -1,5 +1,6 @@
-.worktrees/
-node_modules/
-data/*.json
-data/*.tmp
+.env
+__pycache__/
+*.py[cod]
 .DS_Store
+logs/
+.venv/
