@@ -1,0 +1,19 @@
+{
+  "topics": [
+    "artificial-intelligence",
+    "machine-learning",
+    "deep-learning",
+    "llm",
+    "generative-ai",
+    "agents",
+    "rag",
+    "diffusion",
+    "inference"
+  ],
+  "min_stars": 50,
+  "search_limit": 30,
+  "feeds": [
+    {"name": "GitHub Blog", "url": "https://github.blog/feed/"},
+    {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml"}
+  ]
+}
