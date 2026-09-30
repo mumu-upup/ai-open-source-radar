@@ -7,7 +7,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .feeds import FeedReader
-from .github_client import DEFAULT_TOPICS, GitHubClient, merge_repositories
+from .github_client import DEFAULT_TOPICS, GitHubClient, TrendingClient, merge_repositories
 from .models import DailyRepo, FeedItem, RepoSnapshot
 from .report import render_report
 from .storage import SnapshotStore, calculate_delta
@@ -70,6 +70,7 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
     warnings: List[str] = []
     generated_at = local_now()
     feed_items: List[FeedItem] = []
+    trending = []
 
     if offline:
         repos = _offline_repos(store, day)
@@ -84,6 +85,9 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
             raw_items.extend(client.search_repositories(str(topic), min_stars, search_limit))
         repos = merge_repositories(raw_items, min_stars)
         warnings.extend(client.warnings)
+        trending_client = TrendingClient()
+        trending = trending_client.fetch_daily()
+        warnings.extend(trending_client.warnings)
         if repos:
             store.save(day, repos)
         else:
@@ -102,7 +106,7 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
 
     rankings, baseline = _daily_repos(store, day, repos)
     rankings = rankings[:limit]
-    report = render_report(day, generated_at, rankings, baseline, feed_items, warnings)
+    report = render_report(day, generated_at, rankings, baseline, feed_items, warnings, trending)
     report_path = root / "reports" / (day.isoformat() + ".md")
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(report, encoding="utf-8")

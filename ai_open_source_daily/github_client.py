@@ -1,11 +1,13 @@
 import json
 import os
+import re
+from html import unescape
 from typing import Any, Dict, List, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .models import RepoSnapshot
+from .models import RepoSnapshot, TrendingRepo
 
 
 DEFAULT_TOPICS = [
@@ -57,6 +59,43 @@ class GitHubClient:
 
     def repository(self, owner_repo: str) -> Optional[Dict[str, Any]]:
         return self._get_json("/repos/" + owner_repo)
+
+
+class TrendingClient:
+    _ai_terms = re.compile(r"\b(ai|artificial intelligence|llm|agent|machine learning|model|inference|rag|diffusion|embedding|vision|voice|tts|stt)\b", re.I)
+
+    def __init__(self, timeout: int = 20):
+        self.timeout = timeout
+        self.warnings: List[str] = []
+
+    def fetch_daily(self) -> List[TrendingRepo]:
+        request = Request(
+            "https://github.com/trending?since=daily&spoken_language_code=en",
+            headers={"User-Agent": "ai-open-source-daily/1.0"},
+        )
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                return self.parse_daily(response.read().decode("utf-8", errors="replace"))
+        except (HTTPError, URLError, TimeoutError, ValueError, OSError) as error:
+            self.warnings.append("GitHub Trending 获取失败：%s" % error)
+            return []
+
+    def parse_daily(self, html: str) -> List[TrendingRepo]:
+        results: List[TrendingRepo] = []
+        for article in re.findall(r"<article\b.*?</article>", html, flags=re.I | re.S):
+            match = re.search(r"<h2\b.*?<a\b[^>]+href=['\"]/(%s/%s)['\"]" % (r"[^/'\"]+", r"[^/'\"]+"), article, flags=re.I | re.S)
+            stars = re.search(r"([0-9][0-9,]*)\s+stars\s+today", article, flags=re.I)
+            if not match or not stars:
+                continue
+            repo = unescape(match.group(1))
+            text = re.sub(r"<[^>]+>", " ", unescape(article))
+            text = " ".join(text.split())
+            if not self._ai_terms.search(repo + " " + text):
+                continue
+            description_match = re.search(r"<p\b[^>]*>(.*?)</p>", article, flags=re.I | re.S)
+            description = " " .join(re.sub(r"<[^>]+>", " ", unescape(description_match.group(1))).split()) if description_match else ""
+            results.append(TrendingRepo(repo, "https://github.com/" + repo, int(stars.group(1).replace(",", "")), description))
+        return sorted(results, key=lambda item: item.stars_today, reverse=True)
 
 
 def merge_repositories(items: List[Dict[str, Any]], min_stars: int = 50) -> List[RepoSnapshot]:

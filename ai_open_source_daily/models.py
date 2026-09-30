@@ -62,3 +62,11 @@ class FeedItem:
     url: str
     published_at: str
     summary: str = ""
+
+
+@dataclass(frozen=True)
+class TrendingRepo:
+    repo: str
+    url: str
+    stars_today: int
+    description: str = ""

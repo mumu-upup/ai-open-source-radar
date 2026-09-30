@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import List
 
-from .models import DailyRepo, FeedItem, RepoSnapshot
+from .models import DailyRepo, FeedItem, RepoSnapshot, TrendingRepo
 
 
 def _delta_text(value):
@@ -21,6 +21,7 @@ def render_report(
     baseline: List[RepoSnapshot],
     feed_items: List[FeedItem],
     warnings: List[str],
+    trending: List[TrendingRepo] = None,
 ) -> str:
     lines = [
         "# AI 开源项目每日汇总｜%s" % day.isoformat(),
@@ -68,6 +69,14 @@ def render_report(
             lines.append("- [%s](%s)%s" % (item.title, item.url or "#", summary))
     else:
         lines.append("过去 24 小时没有成功获取到新的公开 RSS 条目。")
+
+    lines.extend(["", "## 今日 GitHub Trending（AI 相关）", ""])
+    if trending:
+        lines.extend(["| 项目 | 今日 Trending 新增 Star | 简介 |", "| --- | ---: | --- |"])
+        for item in trending[:20]:
+            lines.append("| [%s](%s) | +%d | %s |" % (item.repo, item.url, item.stars_today, _clean(item.description)[:160] or "—"))
+    else:
+        lines.append("今日未获取到 AI 相关 Trending 项目。")
 
     lines.extend(["", "## 基线建立中", ""])
     if baseline:
