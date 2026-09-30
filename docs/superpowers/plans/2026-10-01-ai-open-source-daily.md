@@ -4,7 +4,7 @@
 
 **Goal:** Build a dependency-free Python job that snapshots AI GitHub repositories, calculates daily Star growth, collects AI activity, and writes `reports/YYYY-MM-DD.md` every day at 09:00 Asia/Shanghai.
 
-**Architecture:** `GitHubClient` handles HTTP and API pagination, `SnapshotStore` persists one JSON snapshot per day, `Collector` merges topic searches and repository metadata, `FeedReader` parses configured RSS feeds, and `MarkdownReport` renders the final report. The CLI composes these pieces and supports online and offline modes; a launchd plist runs the CLI daily.
+**Architecture:** `GitHubClient` handles HTTP and API pagination, `TrendingClient` extracts AI-related daily signals from GitHub Trending, `SnapshotStore` persists one JSON snapshot per day, `Collector` merges topic searches and repository metadata, `FeedReader` parses configured RSS feeds, and `MarkdownReport` renders the final report. The CLI composes these pieces and supports online and offline modes; a launchd plist runs the CLI daily.
 
 **Tech Stack:** Python 3.11+ standard library (`urllib`, `json`, `xml.etree.ElementTree`, `argparse`, `datetime`, `pathlib`, `unittest`), macOS launchd.
 
@@ -16,6 +16,7 @@
 - Keep credentials out of Markdown, snapshots, logs, and committed files.
 - Continue when an individual GitHub query, repository, or RSS feed fails; report warnings.
 - No third-party Python dependency is required.
+- GitHub Trending is an auxiliary discovery signal; Star deltas remain based on stored GitHub API snapshots.
 
 ---
 

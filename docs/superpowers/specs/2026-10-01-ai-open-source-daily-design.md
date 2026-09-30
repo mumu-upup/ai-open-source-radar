@@ -11,7 +11,7 @@
 - 首次运行建立候选项目基线；没有昨日快照的项目显示“基线建立中”，不伪造日增数。
 - 候选项目来自 GitHub 搜索的 AI 主题：`artificial-intelligence`、`machine-learning`、`deep-learning`、`llm`、`generative-ai`、`agents`、`rag`、`diffusion`、`inference`。结果按 Star 和最近推送时间合并去重。
 - 只收录公开、未归档、非 fork 仓库；默认总 Star 至少 50，避免日报被低质量新仓库淹没。
-- 动态部分优先使用候选仓库最近 24 小时的 release、push 和 README 变化，并补充 GitHub Blog 与 Hugging Face Blog 的公开 RSS；单个来源失败不影响项目榜单。
+- 动态部分优先使用候选仓库最近 24 小时的 release、push 和 README 变化，并补充 GitHub Blog 与 Hugging Face Blog 的公开 RSS；同时抓取 GitHub Trending 每日页作为“当天新增明显”的即时信号。单个来源失败不影响项目榜单。
 
 ## 输出
 
@@ -20,9 +20,10 @@
 1. 采集时间、数据来源、是否使用 GitHub Token。
 2. 24 小时净增榜（最多 20 个项目）。
 3. 7 日趋势榜（有足够历史时显示）。
-4. “基线建立中”项目列表。
-5. AI 动态：新 release、仓库活动和 RSS 条目。
-6. 失败来源和限流提示。
+4. AI 相关 GitHub Trending 当日新增 Star 榜。
+5. “基线建立中”项目列表。
+6. AI 动态：新 release、仓库活动和 RSS 条目。
+7. 失败来源和限流提示。
 
 历史数据写入 `data/snapshots/YYYY-MM-DD.json`，配置写入 `.env.example` 和 `config/sources.json`。不把 Token 或其他凭据写入报告。
 
