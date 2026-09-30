@@ -1,6 +1,6 @@
-# AI 开源项目每日汇总
+# AI 开源雷达
 
-这个小工具每天生成一份 Markdown 日报，统计 AI 相关 GitHub 项目的 Star 增长，并汇总最近 24 小时的公开 AI 动态。
+AI 开源雷达每天生成一份 Markdown 日报，跟踪 AI 相关 GitHub 项目的 Star 增长，并汇总最近 24 小时的公开 AI 动态。
 
 ## 运行
 
