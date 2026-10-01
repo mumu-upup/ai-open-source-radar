@@ -22,6 +22,11 @@ class CollectorTests(unittest.TestCase):
         items = FeedReader().read(xml, datetime(2026, 9, 30, 12, tzinfo=timezone.utc))
         self.assertEqual([item.title for item in items], ["AI launch"])
 
+    def test_feed_reader_keeps_configured_source(self):
+        xml = """<rss><channel><item><title>AI launch</title><link>https://example.com/a</link><pubDate>Thu, 01 Oct 2026 01:00:00 GMT</pubDate></item></channel></rss>"""
+        items = FeedReader().read(xml, datetime(2026, 9, 30, 12, tzinfo=timezone.utc), source="GitHub Blog")
+        self.assertEqual(items[0].source, "GitHub Blog")
+
     def test_trending_client_extracts_ai_repositories_and_daily_stars(self):
         html = """
         <article class='Box-row'>
