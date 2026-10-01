@@ -4,6 +4,57 @@ from typing import List, Optional
 from .models import DailyRepo, FeedItem, RepoSnapshot, TrendingRepo
 
 
+_KNOWN_DESCRIPTIONS_ZH = {
+    "affaan-m/ECC": "面向 AI 编程与工程协作的工具集。",
+    "NousResearch/hermes-agent": "面向自主任务执行的 AI Agent 项目。",
+    "tensorflow/tensorflow": "成熟的机器学习与深度学习框架。",
+    "Significant-Gravitas/AutoGPT": "可自主拆解并执行任务的 AI Agent 平台。",
+    "firecrawl/firecrawl": "把网页内容抓取并转换成适合 LLM 使用的数据。",
+    "ollama/ollama": "在本地下载、运行和管理大语言模型。",
+    "f/prompts.chat": "提示词、工作流和 AI 应用资源集合。",
+    "huggingface/transformers": "覆盖文本、视觉和音频模型的开源模型库。",
+    "AUTOMATIC1111/stable-diffusion-webui": "Stable Diffusion 图像生成与模型管理界面。",
+    "langgenius/dify": "用于搭建、编排和部署 LLM 应用的平台。",
+    "langflow-ai/langflow": "可视化编排 Agent 和 LLM 工作流的开发平台。",
+    "open-webui/open-webui": "面向本地和远程模型的友好型 AI 对话界面。",
+    "langchain-ai/langchain": "构建 LLM 应用、Agent 和检索流程的开发框架。",
+    "browser-use/browser-use": "让 AI Agent 能够理解并操作浏览器。",
+    "vllm-project/vllm": "高性能大语言模型推理和服务框架。",
+    "infiniflow/ragflow": "面向企业知识库和 RAG 应用的检索增强平台。",
+    "unslothai/unsloth": "用于本地训练和微调大语言模型的工具。",
+    "openbq-org/OpenBB": "面向分析师、量化和 AI Agent 的数据平台。",
+    "PostHog/posthog": "包含 AI 可观测能力的产品分析和开发者工具平台。",
+    "microsoft/generative-ai-for-beginners": "面向初学者的生成式 AI 学习课程。",
+    "hacksider/Deep-Live-Cam": "实时人脸替换和视频生成工具。",
+    "PaddlePaddle/PaddleOCR": "把图像和 PDF 转成结构化数据的 OCR 与文档解析工具。",
+    "rtk-ai/rtk": "减少 LLM 命令行 Token 消耗的开发者工具。",
+    "scikit-learn/scikit-learn": "提供经典机器学习算法和数据分析能力的 Python 库。",
+}
+
+
+def _zh_description(repo: RepoSnapshot) -> str:
+    known = _KNOWN_DESCRIPTIONS_ZH.get(repo.repo)
+    if known:
+        return known
+    text = " ".join([repo.repo, repo.name, repo.description, " ".join(repo.topics)]).lower()
+    directions = []
+    if any(term in text for term in ("agent", "agents", "智能体")):
+        directions.append("AI Agent")
+    if any(term in text for term in ("llm", "language model", "大语言模型", "transformer")):
+        directions.append("大语言模型")
+    if any(term in text for term in ("rag", "retrieval", "knowledge base")):
+        directions.append("知识库与 RAG")
+    if any(term in text for term in ("diffusion", "image generation", "vision")):
+        directions.append("图像与视觉生成")
+    if any(term in text for term in ("speech", "voice", "audio", "tts", "stt")):
+        directions.append("语音与音频")
+    if any(term in text for term in ("framework", "library", "inference", "training")):
+        directions.append("模型开发与推理")
+    if not directions:
+        directions.append("AI 应用与开发工具")
+    return "AI 开源项目，主要方向：" + "、".join(dict.fromkeys(directions)) + "。"
+
+
 def _delta_text(value: Optional[int]) -> str:
     if value is None:
         return "基线建立中"
@@ -78,7 +129,7 @@ def render_report(
                     _delta_text(item.delta_24h),
                     repo.stars,
                     status,
-                    _clean(repo.description)[:160] or "—",
+                    _zh_description(repo),
                 )
             )
     elif comparison_day is None:
@@ -89,14 +140,22 @@ def render_report(
     lines.extend(["", "## 总 Star 排名前 10", ""])
     if top_total:
         lines.extend([
-            "| 排名 | 项目 | 当前总 Star | 24h 净增 | 排名变化 |",
-            "| ---: | --- | ---: | ---: | ---: |",
+            "| 排名 | 项目 | 当前总 Star | 24h 净增 | 排名变化 | 中文简介 |",
+            "| ---: | --- | ---: | ---: | ---: | --- |",
         ])
         for index, item in enumerate(top_total, 1):
             repo = item.repo
             lines.append(
-                "| %d | [%s](%s) | %d | %s | %s |"
-                % (index, repo.repo, repo.url, repo.stars, _delta_text(item.delta_24h), _rank_change_text(item.rank_change))
+                "| %d | [%s](%s) | %d | %s | %s | %s |"
+                % (
+                    index,
+                    repo.repo,
+                    repo.url,
+                    repo.stars,
+                    _delta_text(item.delta_24h),
+                    _rank_change_text(item.rank_change),
+                    _zh_description(repo),
+                )
             )
     else:
         lines.append("当前没有可用的项目快照。")

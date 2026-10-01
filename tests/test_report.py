@@ -47,6 +47,33 @@ class ReportTests(unittest.TestCase):
         self.assertIn("GitHub Blog", text)
         self.assertIn("2026-10-01", text)
 
+    def test_render_report_uses_chinese_project_description(self):
+        repo = RepoSnapshot(
+            "tensorflow/tensorflow",
+            "TensorFlow",
+            "https://github.com/tensorflow/tensorflow",
+            "An Open Source Machine Learning Framework for Everyone",
+            200000,
+            50000,
+            None,
+            None,
+            ["machine-learning"],
+            False,
+            False,
+        )
+        text = render_report(
+            date(2026, 10, 1),
+            datetime(2026, 10, 1, tzinfo=timezone.utc),
+            [DailyRepo(repo, 20, None, False)],
+            [],
+            [],
+            [],
+            top_total=[DailyRepo(repo, 20, None, False)],
+            comparison_day=date(2026, 9, 30),
+        )
+        self.assertIn("深度学习框架", text)
+        self.assertNotIn("An Open Source Machine Learning Framework", text)
+
 
 if __name__ == "__main__":
     unittest.main()
