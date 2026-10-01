@@ -2,8 +2,8 @@ name: Daily AI open-source report
 
 on:
   schedule:
-    # 01:00 UTC = 09:00 Asia/Shanghai.
-    - cron: "0 1 * * *"
+    # 01:07 UTC = 09:07 Asia/Shanghai; offset from the top of the hour.
+    - cron: "7 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -35,5 +35,5 @@ jobs:
             echo "No report changes to commit."
             exit 0
           fi
-          git commit -m "chore: update daily AI report $(date -u +%F)"
+          git commit -m "chore: update daily AI report $(TZ=Asia/Shanghai date +%F)"
           git push
