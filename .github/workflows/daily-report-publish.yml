@@ -1,0 +1,37 @@
+name: Daily AI report - publish
+
+on:
+  schedule:
+    # 01:00 UTC = 09:00 Asia/Shanghai.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Fetch the 08:00 collection
+        run: git fetch origin daily-report-staging:refs/remotes/origin/daily-report-staging
+
+      - name: Copy collected report and snapshots
+        run: git checkout origin/daily-report-staging -- reports data/snapshots
+
+      - name: Publish report to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports data/snapshots
+          if git diff --cached --quiet; then
+            echo "No report changes to publish."
+            exit 0
+          fi
+          git commit -m "chore: publish daily AI report $(TZ=Asia/Shanghai date +%F)"
+          git push origin HEAD:main

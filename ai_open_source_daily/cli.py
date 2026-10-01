@@ -6,8 +6,9 @@ from typing import Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from .candidates import collect_candidates
 from .feeds import FeedReader
-from .github_client import DEFAULT_TOPICS, GitHubClient, TrendingClient, merge_repositories
+from .github_client import DEFAULT_TOPICS, GitHubClient, TrendingClient
 from .models import DailyRepo, FeedItem, RepoSnapshot
 from .report import render_report
 from .storage import SnapshotStore, calculate_delta
@@ -22,6 +23,17 @@ def local_now() -> datetime:
     if ZoneInfo:
         return datetime.now(ZoneInfo("Asia/Shanghai"))
     return datetime.now(timezone(timedelta(hours=8)))
+
+
+def _yesterday_window(day: date) -> Tuple[datetime, datetime]:
+    """Return the previous Shanghai calendar day as a UTC half-open interval."""
+    if ZoneInfo:
+        local_zone = ZoneInfo("Asia/Shanghai")
+    else:  # pragma: no cover - Python versions without zoneinfo
+        local_zone = timezone(timedelta(hours=8))
+    start_local = datetime.combine(day - timedelta(days=1), datetime.min.time(), tzinfo=local_zone)
+    end_local = datetime.combine(day, datetime.min.time(), tzinfo=local_zone)
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
 
 
 def _load_config(root: Path) -> Dict:
@@ -96,6 +108,55 @@ def _offline_repos(store: SnapshotStore, day: date) -> List[RepoSnapshot]:
     return []
 
 
+def _dedupe_feed_items(items: List[FeedItem]) -> List[FeedItem]:
+    seen = set()
+    result = []
+    for item in sorted(items, key=lambda value: value.published_at, reverse=True):
+        key = item.url or item.title
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result
+
+
+def _github_collection_failed(warnings: List[str]) -> bool:
+    return any(warning.startswith("GitHub API ") for warning in warnings)
+
+
+def _collect_repositories(client: GitHubClient, config: Dict) -> List[RepoSnapshot]:
+    """Collect topic candidates plus explicit canonical repositories to watch."""
+    topics = config.get("topics") or DEFAULT_TOPICS
+    min_stars = int(config.get("min_stars", 50))
+    search_limit = int(config.get("search_limit", 30))
+    return collect_candidates(
+        client,
+        topics,
+        config.get("watch_repositories") or [],
+        min_stars,
+        search_limit,
+    )
+
+
+def _read_feed_items(
+    reader: FeedReader,
+    content: str,
+    source: Dict,
+    since: datetime,
+    until: datetime,
+) -> List[FeedItem]:
+    source_format = source.get("format", "xml")
+    if source_format == "markdown":
+        return reader.read_markdown(content, since, source.get("name", ""), until=until, base_url=source.get("url", ""))
+    if source_format == "update_markup":
+        return reader.read_update_markup(content, since, source.get("name", ""), until=until, base_url=source.get("url", ""))
+    if source_format == "deepseek_html":
+        return reader.read_deepseek_html(content, since, source.get("name", ""), until=until, base_url=source.get("url", ""))
+    if source_format == "huggingface_models":
+        return reader.read_huggingface_models(content, since, source.get("name", ""), until=until, base_url=source.get("url", ""))
+    return reader.read(content, since, source.get("name", ""), ai_only=bool(source.get("ai_only", True)), until=until)
+
+
 def run(root: Path, day: date, offline: bool, limit: int) -> Path:
     config = _load_config(root)
     store = SnapshotStore(root / "data" / "snapshots")
@@ -109,32 +170,33 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
         warnings.append("离线模式：未请求 GitHub 或 RSS，项目数据来自本地快照。")
     else:
         client = GitHubClient()
-        raw_items: List[dict] = []
-        topics = config.get("topics") or DEFAULT_TOPICS
-        min_stars = int(config.get("min_stars", 50))
-        search_limit = int(config.get("search_limit", 30))
-        for topic in topics:
-            raw_items.extend(client.search_repositories(str(topic), min_stars, search_limit))
-        repos = merge_repositories(raw_items, min_stars)
+        repos = _collect_repositories(client, config)
         warnings.extend(client.warnings)
         trending_client = TrendingClient()
         trending = trending_client.fetch_daily()
         warnings.extend(trending_client.warnings)
-        if repos:
-            store.save(day, repos)
-        else:
-            cached = _offline_repos(store, day)
+        cached = _offline_repos(store, day)
+        if _github_collection_failed(client.warnings):
             if cached:
                 repos = cached
-                warnings.append("GitHub 没有返回候选仓库，使用最近一次本地快照。")
+                warnings.append("GitHub API 返回限流或错误，使用上一份完整本地快照，避免覆盖项目榜。")
+            elif repos:
+                warnings.append("GitHub API 返回限流或错误，当前项目榜可能不完整，未保存为新快照。")
+        elif repos:
+            store.save(day, repos)
+        elif cached:
+            repos = cached
+            warnings.append("GitHub 没有返回候选仓库，使用最近一次本地快照。")
         reader = FeedReader()
-        since = generated_at.astimezone(timezone.utc) - timedelta(hours=24)
+        since, until = _yesterday_window(day)
         for source in config.get("feeds") or []:
             try:
-                feed_items.extend(reader.read(_fetch_feed(source["url"]), since, source.get("name", "")))
+                content = _fetch_feed(source["url"])
+                items = _read_feed_items(reader, content, source, since, until)
+                feed_items.extend(items)
             except (HTTPError, URLError, TimeoutError, ValueError, OSError) as error:
                 warnings.append("RSS %s 获取失败：%s" % (source.get("name", source.get("url", "未知来源")), error))
-        feed_items.sort(key=lambda item: item.published_at, reverse=True)
+        feed_items = _dedupe_feed_items(feed_items)
 
     rankings, top_total, baseline, comparison_day = _rank_repositories(store, day, repos)
     rankings = rankings[:limit]

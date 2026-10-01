@@ -1,16 +1,16 @@
-name: Daily AI open-source report
+name: Daily AI report - collect
 
 on:
   schedule:
-    # 01:07 UTC = 09:07 Asia/Shanghai; offset from the top of the hour.
-    - cron: "7 1 * * *"
+    # 00:00 UTC = 08:00 Asia/Shanghai.
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  update-report:
+  collect:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -21,19 +21,20 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Generate report
+      - name: Collect data and generate report
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python -m ai_open_source_daily --root . --limit 20
 
-      - name: Commit report and snapshots
+      - name: Save collected files to staging branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B daily-report-staging
           git add reports data/snapshots
           if git diff --cached --quiet; then
-            echo "No report changes to commit."
-            exit 0
+            echo "No report changes to stage."
+          else
+            git commit -m "chore: collect daily AI report $(TZ=Asia/Shanghai date +%F)"
           fi
-          git commit -m "chore: update daily AI report $(TZ=Asia/Shanghai date +%F)"
-          git push
+          git push --force origin HEAD:daily-report-staging

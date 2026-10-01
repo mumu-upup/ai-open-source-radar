@@ -15,4 +15,4 @@ mkdir -p "$LAUNCH_AGENTS" "$ROOT_DIR/logs"
 sed -e "s|__ROOT__|$ROOT_DIR|g" -e "s|__PYTHON__|$PYTHON_BIN|g" "$PLIST_TEMPLATE" > "$PLIST_PATH"
 launchctl bootout "gui/$(id -u)" "$PLIST_PATH" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH"
-echo "Installed $PLIST_PATH; runs daily at 09:00 Asia/Shanghai host time."
+echo "Installed $PLIST_PATH; runs daily at 08:00 Asia/Shanghai host time."

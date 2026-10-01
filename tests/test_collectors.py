@@ -27,6 +27,97 @@ class CollectorTests(unittest.TestCase):
         items = FeedReader().read(xml, datetime(2026, 9, 30, 12, tzinfo=timezone.utc), source="GitHub Blog")
         self.assertEqual(items[0].source, "GitHub Blog")
 
+    def test_feed_reader_can_filter_non_ai_events(self):
+        xml = """<rss><channel>
+        <item><title>Git 2.56 release</title><link>https://example.com/git</link><pubDate>Thu, 01 Oct 2026 01:00:00 GMT</pubDate><description>Source control updates</description></item>
+        <item><title>New AI agent security tool</title><link>https://example.com/ai</link><pubDate>Thu, 01 Oct 2026 02:00:00 GMT</pubDate><description>Machine learning agent</description></item>
+        </channel></rss>"""
+        items = FeedReader().read(
+            xml,
+            datetime(2026, 9, 30, 12, tzinfo=timezone.utc),
+            source="GitHub Blog",
+            ai_only=True,
+        )
+        self.assertEqual([item.title for item in items], ["New AI agent security tool"])
+
+    def test_feed_reader_keeps_named_model_events(self):
+        xml = """<rss><channel>
+        <item><title>Introducing GPT-6.1 Sol</title><link>https://example.com/gpt</link><pubDate>Thu, 01 Oct 2026 01:00:00 GMT</pubDate><description>New model</description></item>
+        <item><title>Gemini developer update</title><link>https://example.com/gemini</link><pubDate>Thu, 01 Oct 2026 02:00:00 GMT</pubDate><description>Product update</description></item>
+        </channel></rss>"""
+        items = FeedReader().read(xml, datetime(2026, 9, 30, 12, tzinfo=timezone.utc), ai_only=True)
+        self.assertEqual([item.title for item in items], ["Gemini developer update", "Introducing GPT-6.1 Sol"])
+
+    def test_feed_reader_respects_calendar_window_and_deduplicates(self):
+        xml = """<rss><channel>
+        <item><title>Codex release</title><link>https://example.com/codex</link><pubDate>Wed, 30 Sep 2026 12:00:00 GMT</pubDate><description>Release notes</description></item>
+        <item><title>Codex release duplicate</title><link>https://example.com/codex</link><pubDate>Wed, 30 Sep 2026 12:01:00 GMT</pubDate><description>Duplicate notes</description></item>
+        <item><title>Today release</title><link>https://example.com/today</link><pubDate>Thu, 01 Oct 2026 01:00:00 GMT</pubDate><description>Release notes</description></item>
+        </channel></rss>"""
+        items = FeedReader().read(
+            xml,
+            datetime(2026, 9, 30, 0, tzinfo=timezone.utc),
+            source="Codex Release",
+            until=datetime(2026, 10, 1, 0, tzinfo=timezone.utc),
+        )
+        self.assertEqual([item.title for item in items], ["Codex release"])
+
+    def test_feed_reader_parses_markdown_release_notes_by_date(self):
+        markdown = """### September 30, 2026
+
+* We launched Claude Sonnet 5.5.
+
+### September 29, 2026
+
+* Older note.
+"""
+        items = FeedReader().read_markdown(
+            markdown,
+            datetime(2026, 9, 29, 16, tzinfo=timezone.utc),
+            source="Anthropic Claude Platform",
+            until=datetime(2026, 9, 30, 16, tzinfo=timezone.utc),
+            base_url="https://platform.claude.com/docs/en/release-notes/overview",
+        )
+        self.assertEqual(len(items), 1)
+        self.assertIn("Claude Sonnet 5.5", items[0].title)
+        self.assertEqual(items[0].source, "Anthropic Claude Platform")
+
+    def test_feed_reader_parses_update_markup_for_domestic_model_sources(self):
+        markup = """<Update label="2026-09-30" description="GLM-5.3 Flash 上线">
+  * Native multimodal model for coding agents.
+</Update>
+<Update label="2026-09-29" description="Older update">
+  * Older note.
+</Update>"""
+        items = FeedReader().read_update_markup(
+            markup,
+            datetime(2026, 9, 29, 16, tzinfo=timezone.utc),
+            source="Zhipu GLM Changelog",
+            until=datetime(2026, 9, 30, 16, tzinfo=timezone.utc),
+            base_url="https://docs.bigmodel.cn/cn/update/new-releases.md",
+        )
+        self.assertEqual(len(items), 1)
+        self.assertIn("GLM-5.3 Flash", items[0].title)
+        self.assertIn("multimodal", items[0].summary)
+
+    def test_feed_reader_parses_deepseek_dated_html_sections(self):
+        html = """<main>
+        <h2 id="date-2026-09-30">Date: 2026-09-30</h2>
+        <h3>DeepSeek-V4.1-Flash Release</h3>
+        <p>Native multimodal visual understanding.</p>
+        <h2 id="date-2026-09-29">Date: 2026-09-29</h2>
+        <h3>Older update</h3><p>Old note.</p>
+        </main>"""
+        items = FeedReader().read_deepseek_html(
+            html,
+            datetime(2026, 9, 29, 16, tzinfo=timezone.utc),
+            source="DeepSeek API Changelog",
+            until=datetime(2026, 9, 30, 16, tzinfo=timezone.utc),
+            base_url="https://api-docs.deepseek.com/updates/",
+        )
+        self.assertEqual(len(items), 1)
+        self.assertIn("DeepSeek-V4.1-Flash", items[0].title)
+
     def test_trending_client_extracts_ai_repositories_and_daily_stars(self):
         html = """
         <article class='Box-row'>

@@ -4,11 +4,15 @@ AI 开源雷达每天生成一份“昨天 AI 发生了什么”的 Markdown 简
 
 每期日报包含：
 
-- 昨日 AI 大事：来自配置的 GitHub Blog、Hugging Face Blog 等公开 RSS，带来源、日期、链接和摘要。
+- 昨日 AI 大事：来自 OpenAI、NVIDIA、TechCrunch、GitHub、Hugging Face、Qwen、Mistral 等公开 RSS，以及 Codex、Claude、Gemini、GLM、Kimi、DeepSeek、Hermes、Qwen、Llama、Mistral、Gemma、Grok、Pi、Jev 和 OpenHands、Cline、Aider、SWE-agent、OpenCode、Kilo Code 等官方或主仓库更新源；同时扫描 Hugging Face 上 Qwen、Hermes、Llama、Mistral、Gemma、Phi、MiniMax、Yi 的模型仓库活动，带来源、日期、链接和摘要。
 - Star 增长明显的项目：昨天快照到今天快照的 Star 净增，标记新进入追踪的项目。
 - 总 Star 排名前 10：当前最受欢迎的项目，同时显示 24h 净增和排名变化。
 - GitHub Trending AI 信号：当天热度参考，不等于总 Star 排名。
 - 一句话观察、基线说明和采集警告。
+
+日报采用中英文并列展示：项目和 Trending 表格同时提供中文简介与仓库原始英文简介；AI 动态同时提供中文概述和 RSS 原文摘要。中文读者可以先看中文结论，习惯英文的读者可以直接核对原文。
+
+“昨日 AI 大事”按中国时区的自然日统计（昨天 00:00–24:00），最多展示 20 条并按发布时间倒序去重。重点产品区覆盖闭源模型、开源模型和编程 Agent；如果某个产品当天没有公开更新，会明确显示并继续监控，不会编造条目。Hugging Face 条目描述的是模型仓库活动：只有 `createdAt` 和 `lastModified` 都落在窗口内时才标记为新模型仓库，否则写成仓库更新，不把代码或权重同步误报成模型发布。Jev 的官方模型入口是 TypeSafe AI，`browser-use/jev-ultrafast` 单独标为社区集成；Pi 这里监控的是开源 Pi Agent Harness，和 Inflection 的 Pi 助手分开标注。
 
 ## 运行
 
@@ -30,19 +34,19 @@ python3 -m ai_open_source_daily --root . --date 2026-10-01 --offline
 
 日报中的新增 Star 是固定采集时刻的快照差值，因此会在 Star 被取消时体现为净减少。RSS 来源失败会写入日报警告，不会阻止项目榜生成。
 
-## GitHub Actions 每天约 09:07 自动更新
+## GitHub Actions 每天 08:00 采集、09:00 推送
 
-仓库内置 GitHub Actions，使用 `07 01 * * *`（中国时间约 09:07）运行，避开 GitHub 整点调度高峰，自动更新 `reports/` 和 `data/snapshots/` 并提交到 `main`。也可以在仓库的 **Actions → Daily AI open-source report → Run workflow** 手动触发。
+仓库内置两段 GitHub Actions：`Daily AI report - collect` 使用 `0 0 * * *`（中国时间 08:00）采集公开来源并保存到 `daily-report-staging`；`Daily AI report - publish` 使用 `0 1 * * *`（中国时间 09:00）把已采集的 `reports/` 和 `data/snapshots/` 推送到 `main`。GitHub 定时任务可能有少量排队延迟，也可以在仓库的 **Actions** 页面手动触发。
 
 GitHub Actions 使用内置 `GITHUB_TOKEN` 访问公开 API，不需要额外配置个人 Token。GitHub 的定时任务可能有少量排队延迟。
 
-## 本地每天 09:00 运行（macOS）
+## 本地每天 08:00 运行（macOS）
 
 ```bash
 ./scripts/install_launchd.sh
 ```
 
-任务安装在当前用户的 `~/Library/LaunchAgents`。输出和错误日志分别写到 `logs/ai-open-source-daily.out.log` 与 `logs/ai-open-source-daily.err.log`。卸载：
+任务安装在当前用户的 `~/Library/LaunchAgents`，每天 08:00 生成本地日报。输出和错误日志分别写到 `logs/ai-open-source-daily.out.log` 与 `logs/ai-open-source-daily.err.log`。卸载：
 
 ```bash
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.codex.ai-open-source-daily.plist"
