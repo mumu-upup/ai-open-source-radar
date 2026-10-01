@@ -54,6 +54,7 @@ class DailyRepo:
     delta_24h: Optional[int]
     delta_7d: Optional[int]
     baseline: bool
+    rank_change: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,7 @@ class FeedItem:
     url: str
     published_at: str
     summary: str = ""
+    source: str = ""
 
 
 @dataclass(frozen=True)

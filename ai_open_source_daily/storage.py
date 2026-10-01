@@ -1,7 +1,7 @@
 import json
 from datetime import date, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .models import RepoSnapshot
 
@@ -39,4 +39,15 @@ class SnapshotStore:
                 for item in items:
                     if item.repo == repo:
                         return item
+        return None
+
+    def find_previous_with_day(self, repo: str, before: date, days: int) -> Optional[Tuple[date, RepoSnapshot]]:
+        for offset in range(1, days + 1):
+            snapshot_day = before - timedelta(days=offset)
+            items = self.load(snapshot_day)
+            if items is None:
+                continue
+            for item in items:
+                if item.repo == repo:
+                    return snapshot_day, item
         return None

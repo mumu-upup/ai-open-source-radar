@@ -38,7 +38,7 @@ def _parse_date(value: str) -> Optional[datetime]:
 
 
 class FeedReader:
-    def read(self, xml_text: str, since: datetime) -> List[FeedItem]:
+    def read(self, xml_text: str, since: datetime, source: str = "") -> List[FeedItem]:
         if since.tzinfo is None:
             since = since.replace(tzinfo=timezone.utc)
         since = since.astimezone(timezone.utc)
@@ -60,5 +60,5 @@ class FeedReader:
             if not title or not parsed or parsed < since:
                 continue
             summary = _child_text(node, ["description", "summary", "content"])
-            results.append(FeedItem(title, url, parsed.isoformat(), _TAG_RE.sub("", summary).strip()))
+            results.append(FeedItem(title, url, parsed.isoformat(), _TAG_RE.sub("", summary).strip(), source))
         return sorted(results, key=lambda item: item.published_at, reverse=True)
