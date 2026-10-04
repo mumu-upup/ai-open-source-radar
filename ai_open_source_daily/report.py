@@ -276,15 +276,22 @@ def render_report(
     trending: Optional[List[TrendingRepo]] = None,
     top_total: Optional[List[DailyRepo]] = None,
     comparison_day: Optional[date] = None,
+    current_data_available: bool = True,
+    snapshot_day: Optional[date] = None,
 ) -> str:
     trending = trending or []
     top_total = top_total or []
     comparison_text = comparison_day.isoformat() if comparison_day else "暂无前一日快照（基线建立中）"
+    growth_label = "区间净增" if comparison_day and (day - comparison_day).days != 1 else "24h 净增"
+    star_status = "> Star 对比：%s → %s；正数表示净增，负数表示净减少。" % (comparison_text, day.isoformat())
+    if not current_data_available:
+        star_status = "> 今日 Star 数据不可用；%s。净增与排名变化暂不计算。" % (
+            "历史快照截至 %s" % snapshot_day.isoformat() if snapshot_day else "没有完整项目快照")
     lines = [
         "# AI 每日简报｜%s" % day.isoformat(),
         "",
         "> 采集时间：%s（Asia/Shanghai）" % generated_at.isoformat(),
-        "> Star 对比：%s → %s；正数表示净增，负数表示净减少。" % (comparison_text, day.isoformat()),
+        star_status,
         "",
         "## 昨日 AI 大事",
         "",
@@ -317,9 +324,11 @@ def render_report(
             lines.append("- **%s**：昨日未发现公开更新，已持续监控官方新闻、文档和 GitHub 更新源。" % product)
 
     lines.extend(["", "## Star 增长明显的项目", ""])
-    if rankings:
+    if not current_data_available:
+        lines.append("今日 Star 数据不可用，暂不判断项目增长。")
+    elif rankings:
         lines.extend([
-            "| 排名 | 项目 | 24h 净增 | 当前总 Star | 状态 | 中文简介 | English description |",
+            "| 排名 | 项目 | %s | 当前总 Star | 状态 | 中文简介 | English description |" % growth_label,
             "| ---: | --- | ---: | ---: | --- | --- | --- |",
         ])
         for index, item in enumerate(rankings, 1):
@@ -341,12 +350,13 @@ def render_report(
     elif comparison_day is None:
         lines.append("今天先建立 Star 基线；明天开始显示昨天到今天的净增。")
     else:
-        lines.append("昨日没有正增长明显的项目。")
+        lines.append("对比区间内没有正增长明显的项目。")
 
     lines.extend(["", "## 总 Star 排名前 10", ""])
     if top_total:
         lines.extend([
-            "| 排名 | 项目 | 当前总 Star | 24h 净增 | 排名变化 | 中文简介 | English description |",
+            "| 排名 | 项目 | %s | %s | 排名变化 | 中文简介 | English description |" % (
+                "当前总 Star" if current_data_available else "历史快照 Star", growth_label),
             "| ---: | --- | ---: | ---: | ---: | --- | --- |",
         ])
         for index, item in enumerate(top_total, 1):
@@ -358,8 +368,8 @@ def render_report(
                     repo.repo,
                     repo.url,
                     repo.stars,
-                    _delta_text(item.delta_24h),
-                    _rank_change_text(item.rank_change),
+                    _delta_text(item.delta_24h) if current_data_available else "—",
+                    _rank_change_text(item.rank_change) if current_data_available else "—",
                     _zh_description(repo),
                     _clean(repo.description)[:160].strip() or "—",
                 )
@@ -377,20 +387,25 @@ def render_report(
 
     lines.extend(["", "## 一句话观察", ""])
     observations = []
-    if rankings:
+    if not current_data_available:
+        observations.append("今日 Star 数据不可用，不能据此判断有无增长。")
+    elif rankings:
         first = rankings[0]
         observations.append("Star 增长最快的是 %s（%s）。" % (first.repo.repo, _delta_text(first.delta_24h)))
     elif comparison_day is None:
         observations.append("今天是基线日，明天开始可以观察 Star 的日变化。")
     else:
-        observations.append("今天没有项目出现正 Star 增长。")
+        observations.append("对比区间内没有项目出现正 Star 增长。")
     if top_total:
-        observations.append("当前总 Star 第一是 %s（%d）。" % (top_total[0].repo.repo, top_total[0].repo.stars))
+        observations.append("%s总 Star 第一是 %s（%d）。" % (
+            "当前" if current_data_available else "历史快照中", top_total[0].repo.repo, top_total[0].repo.stars))
     observations.append("昨日（Asia/Shanghai）收录 %d 条 AI 动态。" % len(feed_items))
     lines.extend("- " + observation for observation in observations)
 
     lines.extend(["", "## 新进入追踪", ""])
-    if baseline:
+    if not current_data_available:
+        lines.append("今日项目数据不可用，暂不判断新增追踪项目。")
+    elif baseline:
         lines.append("以下项目在对比快照中不存在，今天首次进入追踪：")
         lines.extend("- [%s](%s)：当前 %d Star" % (repo.repo, repo.url, repo.stars) for repo in baseline[:10])
         if len(baseline) > 10:

@@ -97,15 +97,15 @@ def _rank_repositories(
     return growth, top_total, baseline, comparison_day
 
 
-def _offline_repos(store: SnapshotStore, day: date) -> List[RepoSnapshot]:
+def _offline_snapshot(store: SnapshotStore, day: date) -> Tuple[Optional[date], List[RepoSnapshot]]:
     current = store.load(day)
     if current is not None:
-        return current
+        return day, current
     for offset in range(1, 31):
         previous = store.load(day - timedelta(days=offset))
         if previous is not None:
-            return previous
-    return []
+            return day - timedelta(days=offset), previous
+    return None, []
 
 
 def _dedupe_feed_items(items: List[FeedItem]) -> List[FeedItem]:
@@ -164,9 +164,10 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
     generated_at = local_now()
     feed_items: List[FeedItem] = []
     trending = []
+    snapshot_day = None
 
     if offline:
-        repos = _offline_repos(store, day)
+        snapshot_day, repos = _offline_snapshot(store, day)
         warnings.append("离线模式：未请求 GitHub 或 RSS，项目数据来自本地快照。")
     else:
         client = GitHubClient()
@@ -175,17 +176,21 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
         trending_client = TrendingClient()
         trending = trending_client.fetch_daily()
         warnings.extend(trending_client.warnings)
-        cached = _offline_repos(store, day)
+        cached_day, cached = _offline_snapshot(store, day)
         if _github_collection_failed(client.warnings):
             if cached:
                 repos = cached
+                snapshot_day = cached_day
                 warnings.append("GitHub API 返回限流或错误，使用上一份完整本地快照，避免覆盖项目榜。")
             elif repos:
                 warnings.append("GitHub API 返回限流或错误，当前项目榜可能不完整，未保存为新快照。")
+                repos = []
         elif repos:
             store.save(day, repos)
+            snapshot_day = day
         elif cached:
             repos = cached
+            snapshot_day = cached_day
             warnings.append("GitHub 没有返回候选仓库，使用最近一次本地快照。")
         reader = FeedReader()
         since, until = _yesterday_window(day)
@@ -198,7 +203,13 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
                 warnings.append("RSS %s 获取失败：%s" % (source.get("name", source.get("url", "未知来源")), error))
         feed_items = _dedupe_feed_items(feed_items)
 
-    rankings, top_total, baseline, comparison_day = _rank_repositories(store, day, repos)
+    current_data_available = snapshot_day == day
+    if current_data_available:
+        rankings, top_total, baseline, comparison_day = _rank_repositories(store, day, repos)
+    else:
+        rankings, baseline, comparison_day = [], [], None
+        top_total = [DailyRepo(repo, None, None, False) for repo in
+                     sorted(repos, key=lambda item: (-item.stars, item.repo.lower()))[:10]]
     rankings = rankings[:limit]
     report = render_report(
         day,
@@ -210,6 +221,8 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
         trending,
         top_total=top_total,
         comparison_day=comparison_day,
+        current_data_available=current_data_available,
+        snapshot_day=snapshot_day,
     )
     report_path = root / "reports" / (day.isoformat() + ".md")
     report_path.parent.mkdir(parents=True, exist_ok=True)

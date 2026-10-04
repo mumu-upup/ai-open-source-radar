@@ -21,6 +21,12 @@ jobs:
       - name: Fetch the 08:00 collection
         run: git fetch origin daily-report-staging:refs/remotes/origin/daily-report-staging
 
+      - name: Require today's report and snapshot
+        run: |
+          report_day=$(TZ=Asia/Shanghai date +%F)
+          git cat-file -e "origin/daily-report-staging:reports/$report_day.md"
+          git cat-file -e "origin/daily-report-staging:data/snapshots/$report_day.json"
+
       - name: Copy collected report and snapshots
         run: git checkout origin/daily-report-staging -- reports data/snapshots
 

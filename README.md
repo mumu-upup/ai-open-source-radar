@@ -32,13 +32,15 @@ python3 -m ai_open_source_daily --root . --date 2026-10-01 --offline
 
 候选仓库按 `config/sources.json` 中的 AI topics 搜索，排除 fork、归档仓库和低于 50 Star 的仓库。匿名 GitHub API 有较低限额；如需扩大覆盖面，可在运行环境设置 `GITHUB_TOKEN`。Token 只用于请求 GitHub，不会写入日报或快照。
 
-日报中的新增 Star 是固定采集时刻的快照差值，因此会在 Star 被取消时体现为净减少。RSS 来源失败会写入日报警告，不会阻止项目榜生成。
+日报中的新增 Star 是采集快照的差值，因此会在 Star 被取消时体现为净减少。对比快照相隔超过一天时显示“区间净增”，不能解读为 24 小时增长。采集失败使用历史快照时，明确标注快照日期，不计算今日净增或排名变化。GitHub 搜索限流会按照服务端响应头有限等待重试；RSS 来源失败会写入日报警告，不会阻止项目榜生成。
 
 ## GitHub Actions 每天 08:00 采集、09:00 推送
 
-仓库内置两段 GitHub Actions：`Daily AI report - collect` 使用 `0 0 * * *`（中国时间 08:00）采集公开来源并保存到 `daily-report-staging`；`Daily AI report - publish` 使用 `0 1 * * *`（中国时间 09:00）把已采集的 `reports/` 和 `data/snapshots/` 推送到 `main`。GitHub 定时任务可能有少量排队延迟，也可以在仓库的 **Actions** 页面手动触发。
+仓库内置两段 GitHub Actions：`Daily AI report - collect` 计划在中国时间 08:00 采集公开来源并保存到 `daily-report-staging`；`Daily AI report - publish` 计划在中国时间 09:00 把已采集的 `reports/` 和 `data/snapshots/` 推送到 `main`。两阶段均检查当天日报与快照是否存在，防止拿旧数据交差。**GitHub 定时触发不保证准点，本仓库已出现数小时延迟。** 可在仓库的 **Actions** 页面手动触发采集，待完成后再触发发布。
 
-GitHub Actions 使用内置 `GITHUB_TOKEN` 访问公开 API，不需要额外配置个人 Token。GitHub 的定时任务可能有少量排队延迟。
+GitHub Actions 使用内置 `GITHUB_TOKEN` 访问公开 API，不需要额外配置个人 Token。
+
+维护者另在桌面应用中启用了“AI 开源雷达：08点整理、09点发布”聊天定时任务，每天北京时间 08:00、09:00 检查并补跑流水线，验证远端文件后在原聊天报告结果。本地任务要求电脑开机、应用运行并能联网；GitHub Actions 继续作为云端后备。克隆仓库不会自动创建这项聊天任务。
 
 ## 本地每天 08:00 运行（macOS）
 

@@ -26,6 +26,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python -m ai_open_source_daily --root . --limit 20
 
+      - name: Verify today's collection is complete
+        run: |
+          report_day=$(TZ=Asia/Shanghai date +%F)
+          test -s "reports/$report_day.md"
+          test -s "data/snapshots/$report_day.json"
+
       - name: Save collected files to staging branch
         run: |
           git config user.name "github-actions[bot]"

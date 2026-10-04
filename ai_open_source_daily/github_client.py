@@ -1,8 +1,9 @@
 import json
 import os
 import re
+import time
 from html import unescape
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -23,6 +24,43 @@ DEFAULT_TOPICS = [
 ]
 
 
+def _rate_limit_info(error: HTTPError, attempt: int) -> Tuple[Optional[float], str]:
+    """Return a server-directed retry delay and safe numeric diagnostics."""
+    values = {}
+    for name, header in (
+        ("remaining", "X-RateLimit-Remaining"),
+        ("reset", "X-RateLimit-Reset"),
+        ("retry_after", "Retry-After"),
+    ):
+        try:
+            value = int((error.headers or {}).get(header, ""))
+            if value >= 0:
+                values[name] = value
+        except (TypeError, ValueError):
+            continue
+    details = "; " + ", ".join("%s=%d" % item for item in values.items()) if values else ""
+    if error.code not in (403, 429):
+        return None, details
+
+    delays = []
+    if "retry_after" in values:
+        delays.append(max(1, values["retry_after"]))
+    if values.get("remaining") == 0 and "reset" in values:
+        delays.append(max(1, values["reset"] - time.time() + 1))
+    if delays:
+        return max(delays), details
+
+    limited = error.code == 429 or values.get("remaining") == 0
+    if not limited:
+        try:
+            payload = json.loads(error.read(8192).decode("utf-8"))
+            message = str(payload.get("message", "")).lower() if isinstance(payload, dict) else ""
+            limited = "secondary rate limit" in message or "abuse detection" in message
+        except (OSError, ValueError):
+            pass
+    return (60 * (attempt + 1) if limited else None), details
+
+
 class GitHubClient:
     def __init__(self, token: Optional[str] = None, timeout: int = 20):
         self.token = token or os.environ.get("GITHUB_TOKEN")
@@ -36,13 +74,20 @@ class GitHubClient:
         request.add_header("User-Agent", "ai-open-source-daily/1.0")
         if self.token:
             request.add_header("Authorization", "Bearer " + self.token)
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except HTTPError as error:
-            self.warnings.append("GitHub API %s returned HTTP %s" % (path, error.code))
-        except (URLError, TimeoutError, ValueError) as error:
-            self.warnings.append("GitHub API %s failed: %s" % (path, error))
+        for attempt in range(3):
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except HTTPError as error:
+                delay, details = _rate_limit_info(error, attempt)
+                error.close()
+                if attempt < 2 and delay is not None and delay <= 120:
+                    time.sleep(delay)
+                    continue
+                self.warnings.append("GitHub API %s returned HTTP %s%s" % (path, error.code, details))
+            except (URLError, TimeoutError, ValueError) as error:
+                self.warnings.append("GitHub API %s failed: %s" % (path, error))
+            break
         return None
 
     def search_repositories(self, topic: str, min_stars: int = 50, limit: int = 30) -> List[Dict[str, Any]]:
