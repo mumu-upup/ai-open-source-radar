@@ -118,6 +118,30 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertIn("DeepSeek-V4.1-Flash", items[0].title)
 
+    def test_trending_owner_and_contributors_are_not_ai_evidence(self):
+        html = """
+        <article class='Box-row'>
+          <h2><a href='/ai/nanoid'>ai / nanoid</a></h2>
+          <p>A tiny, secure, URL-friendly, unique string ID generator for JavaScript</p>
+          <span>34 stars today</span>
+        </article>
+        <article class='Box-row'>
+          <h2><a href='/tools/formatter'>tools / formatter</a></h2>
+          <p>Source code formatting</p><span>Built by ai</span>
+          <span>12 stars today</span>
+        </article>
+        <article class='Box-row'>
+          <h2><a href='/ai/helper'>ai / helper</a></h2>
+          <p>An AI agent toolkit</p><span>10 stars today</span>
+        </article>
+        <article class='Box-row'>
+          <h2><a href='/tools/llm-runner'>tools / llm-runner</a></h2>
+          <span>8 stars today</span>
+        </article>
+        """
+        self.assertEqual([item.repo for item in TrendingClient().parse_daily(html)],
+                         ["ai/helper", "tools/llm-runner"])
+
     def test_trending_client_extracts_ai_repositories_and_daily_stars(self):
         html = """
         <article class='Box-row'>

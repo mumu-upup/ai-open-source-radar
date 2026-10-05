@@ -133,12 +133,11 @@ class TrendingClient:
             if not match or not stars:
                 continue
             repo = unescape(match.group(1))
-            text = re.sub(r"<[^>]+>", " ", unescape(article))
-            text = " ".join(text.split())
-            if not self._ai_terms.search(repo + " " + text):
-                continue
             description_match = re.search(r"<p\b[^>]*>(.*?)</p>", article, flags=re.I | re.S)
             description = " " .join(re.sub(r"<[^>]+>", " ", unescape(description_match.group(1))).split()) if description_match else ""
+            # Account names and contributor labels do not describe the project.
+            if not self._ai_terms.search(repo.split("/", 1)[1] + " " + description):
+                continue
             results.append(TrendingRepo(repo, "https://github.com/" + repo, int(stars.group(1).replace(",", "")), description))
         return sorted(results, key=lambda item: item.stars_today, reverse=True)
 
