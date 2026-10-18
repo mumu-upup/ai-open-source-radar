@@ -59,6 +59,22 @@ class ReportTests(unittest.TestCase):
         self.assertIn("GitHub Blog", text)
         self.assertIn("2026-10-01", text)
 
+    def test_render_report_shows_event_date_in_shanghai_time(self):
+        event = FeedItem(
+            "Late UTC release",
+            "https://example.com/late-utc-release",
+            "2026-10-16T20:53:06+00:00",
+            "Release notes",
+            "Example Release",
+        )
+        text = render_report(
+            date(2026, 10, 18),
+            datetime(2026, 10, 18, tzinfo=timezone.utc),
+            [], [], [event], [], comparison_day=date(2026, 10, 17),
+        )
+        self.assertIn("Example Release · 2026-10-17", text)
+        self.assertNotIn("Example Release · 2026-10-16", text)
+
     def test_render_report_uses_chinese_project_description(self):
         repo = RepoSnapshot(
             "tensorflow/tensorflow",

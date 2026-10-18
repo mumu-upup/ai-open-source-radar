@@ -1,7 +1,11 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from .models import DailyRepo, FeedItem, RepoSnapshot, TrendingRepo
+
+
+_SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 
 _KNOWN_DESCRIPTIONS_ZH = {
@@ -236,7 +240,15 @@ def _clean(text: str) -> str:
 
 
 def _published_date(value: str) -> str:
-    return (value or "")[:10] or "日期未知"
+    if not value:
+        return "日期未知"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value[:10] or "日期未知"
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(_SHANGHAI).date().isoformat()
 
 
 def _select_event_items(items: List[FeedItem], limit: int = 20) -> List[FeedItem]:
