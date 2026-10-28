@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: daily-ai-report
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -17,27 +21,66 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
-      - name: Fetch the 08:00 collection
-        run: git fetch origin daily-report-staging:refs/remotes/origin/daily-report-staging
+      - name: Check whether today's report is already published
+        id: published
+        run: |
+          git fetch origin main:refs/remotes/origin/main daily-report-staging:refs/remotes/origin/daily-report-staging
+          git merge --ff-only origin/main
+          git merge-base --is-ancestor origin/main HEAD
+          echo "Main baseline and publication source: $(git rev-parse HEAD)"
+          report_day=$(TZ=Asia/Shanghai date +%F)
+          echo "day=$report_day" >> "$GITHUB_OUTPUT"
+          if git cat-file -e "HEAD:reports/$report_day.md" \
+            && git cat-file -e "HEAD:data/snapshots/$report_day.json"; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip already published report
+        if: steps.published.outputs.complete == 'true'
+        run: echo "Today's report and snapshot are already published."
 
       - name: Require today's report and snapshot
+        if: steps.published.outputs.complete != 'true'
         run: |
-          report_day=$(TZ=Asia/Shanghai date +%F)
+          report_day="${{ steps.published.outputs.day }}"
           git cat-file -e "origin/daily-report-staging:reports/$report_day.md"
           git cat-file -e "origin/daily-report-staging:data/snapshots/$report_day.json"
 
       - name: Copy collected report and snapshots
-        run: git checkout origin/daily-report-staging -- reports data/snapshots
+        if: steps.published.outputs.complete != 'true'
+        run: |
+          report_day="${{ steps.published.outputs.day }}"
+          git checkout origin/daily-report-staging -- "reports/$report_day.md" "data/snapshots/$report_day.json"
+          test -s "reports/$report_day.md"
+          test -s "data/snapshots/$report_day.json"
+
+      - name: Set up Python
+        if: steps.published.outputs.complete != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Test synchronized source
+        if: steps.published.outputs.complete != 'true'
+        run: python -m unittest discover -s tests -v
 
       - name: Publish report to main
+        if: steps.published.outputs.complete != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add reports data/snapshots
+          report_day="${{ steps.published.outputs.day }}"
+          git add "reports/$report_day.md" "data/snapshots/$report_day.json"
           if git diff --cached --quiet; then
             echo "No report changes to publish."
             exit 0
           fi
-          git commit -m "chore: publish daily AI report $(TZ=Asia/Shanghai date +%F)"
+          git commit -m "chore: publish daily AI report $report_day"
+          git fetch origin main:refs/remotes/origin/main daily-report-staging:refs/remotes/origin/daily-report-staging
+          git merge-base --is-ancestor origin/main HEAD
+          git diff --exit-code origin/daily-report-staging HEAD -- "reports/$report_day.md" "data/snapshots/$report_day.json"
           git push origin HEAD:main

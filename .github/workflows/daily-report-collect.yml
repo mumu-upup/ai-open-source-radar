@@ -9,38 +9,95 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: daily-ai-report
+  cancel-in-progress: false
+
 jobs:
   collect:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Check whether today's report is already complete
+        id: existing
+        run: |
+          git fetch origin main:refs/remotes/origin/main daily-report-staging:refs/remotes/origin/daily-report-staging
+          git merge --ff-only origin/main
+          report_day=$(TZ=Asia/Shanghai date +%F)
+          echo "day=$report_day" >> "$GITHUB_OUTPUT"
+          for ref in HEAD origin/daily-report-staging; do
+            if git cat-file -e "$ref:reports/$report_day.md" \
+              && git cat-file -e "$ref:data/snapshots/$report_day.json"; then
+              echo "complete=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "complete=false" >> "$GITHUB_OUTPUT"
+
+      - name: Skip completed report
+        if: steps.existing.outputs.complete == 'true'
+        run: echo "Today's report and snapshot already exist on main or staging."
+
+      - name: Verify collection source from the latest main
+        if: steps.existing.outputs.complete != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge-base --is-ancestor origin/main HEAD
+          echo "Main baseline: $(git rev-parse origin/main); collection source: $(git rev-parse HEAD)"
 
       - name: Set up Python
+        if: steps.existing.outputs.complete != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Test synchronized source
+        if: steps.existing.outputs.complete != 'true'
+        run: python -m unittest discover -s tests -v
+
       - name: Collect data and generate report
+        if: steps.existing.outputs.complete != 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python -m ai_open_source_daily --root . --limit 20
+        run: python -m ai_open_source_daily --root . --date "${{ steps.existing.outputs.day }}" --limit 20
 
       - name: Verify today's collection is complete
+        if: steps.existing.outputs.complete != 'true'
         run: |
-          report_day=$(TZ=Asia/Shanghai date +%F)
+          report_day="${{ steps.existing.outputs.day }}"
           test -s "reports/$report_day.md"
           test -s "data/snapshots/$report_day.json"
 
       - name: Save collected files to staging branch
+        if: steps.existing.outputs.complete != 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B daily-report-staging
-          git add reports data/snapshots
+          report_day="${{ steps.existing.outputs.day }}"
+          git add "reports/$report_day.md" "data/snapshots/$report_day.json"
           if git diff --cached --quiet; then
             echo "No report changes to stage."
-          else
-            git commit -m "chore: collect daily AI report $(TZ=Asia/Shanghai date +%F)"
+            exit 0
           fi
-          git push --force origin HEAD:daily-report-staging
+          source_revision=$(git rev-parse HEAD)
+          git commit -m "chore: collect daily AI report $report_day" -m "Source main: $source_revision"
+          collection_revision=$(git rev-parse HEAD)
+          git fetch origin main:refs/remotes/origin/main daily-report-staging:refs/remotes/origin/daily-report-staging
+          git merge-base --is-ancestor origin/main "$source_revision"
+          if git cat-file -e "origin/daily-report-staging:reports/$report_day.md" \
+            && git cat-file -e "origin/daily-report-staging:data/snapshots/$report_day.json"; then
+            echo "Today's report and snapshot were completed during collection; preserving them."
+            exit 0
+          fi
+          git checkout -B daily-report-staging origin/daily-report-staging
+          git checkout "$collection_revision" -- "reports/$report_day.md" "data/snapshots/$report_day.json"
+          git commit -m "chore: collect daily AI report $report_day" -m "Source main: $source_revision"
+          git diff --exit-code "$collection_revision" HEAD -- "reports/$report_day.md" "data/snapshots/$report_day.json"
+          git fetch origin main:refs/remotes/origin/main daily-report-staging:refs/remotes/origin/daily-report-staging
+          git merge-base --is-ancestor origin/main "$source_revision"
+          git merge-base --is-ancestor origin/daily-report-staging HEAD
+          git push origin HEAD:daily-report-staging

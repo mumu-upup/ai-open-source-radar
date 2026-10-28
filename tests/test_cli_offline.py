@@ -8,6 +8,40 @@ from ai_open_source_daily.cli import _collect_repositories, _github_collection_f
 
 
 class OfflineCliTests(unittest.TestCase):
+    def test_existing_report_and_snapshot_are_not_overwritten_by_online_collection(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "reports").mkdir(parents=True)
+            (root / "data" / "snapshots").mkdir(parents=True)
+            report = root / "reports" / "2026-10-29.md"
+            report.write_text("Reviewed report with human edits\n", encoding="utf-8")
+            (root / "data" / "snapshots" / "2026-10-29.json").write_text("[]\n", encoding="utf-8")
+            with patch("ai_open_source_daily.cli.GitHubClient") as client, \
+                 patch("ai_open_source_daily.cli.TrendingClient") as trending, \
+                 patch("ai_open_source_daily.cli._fetch_feed") as fetch:
+                self.assertEqual(main(["--root", str(root), "--date", "2026-10-29"]), 0)
+                client.assert_not_called()
+                trending.assert_not_called()
+                fetch.assert_not_called()
+            self.assertEqual(report.read_text(encoding="utf-8"), "Reviewed report with human edits\n")
+
+    def test_report_without_snapshot_is_regenerated(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "reports").mkdir(parents=True)
+            report = root / "reports" / "2026-10-29.md"
+            report.write_text("Incomplete report\n", encoding="utf-8")
+            with patch("ai_open_source_daily.cli.GitHubClient"), \
+                 patch("ai_open_source_daily.cli.TrendingClient") as trending, \
+                 patch("ai_open_source_daily.cli._collect_repositories", return_value=[]):
+                trending.return_value.fetch_daily.return_value = []
+                self.assertEqual(main(["--root", str(root), "--date", "2026-10-29"]), 0)
+            self.assertNotEqual(report.read_text(encoding="utf-8"), "Incomplete report\n")
+
     def test_read_feed_items_supports_huggingface_model_activity(self):
         from datetime import datetime, timezone
 

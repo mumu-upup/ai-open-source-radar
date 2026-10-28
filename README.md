@@ -28,6 +28,8 @@ python3 -m ai_open_source_daily --root .
 
 首次运行会建立 `data/snapshots/YYYY-MM-DD.json` 基线，因此当天新增 Star 会从第二次采集开始计算；总 Star 前 10 在首次运行也会正常显示。日报写入 `reports/YYYY-MM-DD.md`。
 
+在线运行时，如果指定日期的日报和快照都已存在，会保留现有内容，避免重复采集覆盖人工校订；只有日报但缺少快照时仍会尝试采集。离线重新渲染会重写指定日期的日报，操作前请保留需要的人工编辑。
+
 可以离线重新渲染最近快照：
 
 ```bash
@@ -42,7 +44,9 @@ python3 -m ai_open_source_daily --root . --date 2026-10-01 --offline
 
 ## GitHub Actions 每天 08:00 采集、09:00 推送
 
-仓库内置两段 GitHub Actions：`Daily AI report - collect` 计划在中国时间 08:00 采集公开来源并保存到 `daily-report-staging`；`Daily AI report - publish` 计划在中国时间 09:00 把已采集的 `reports/` 和 `data/snapshots/` 推送到 `main`。两阶段均检查当天日报与快照是否存在，防止拿旧数据交差。**GitHub 定时触发不保证准点，本仓库已出现数小时延迟。** 可在仓库的 **Actions** 页面手动触发采集，待完成后再触发发布。
+仓库内置两段 GitHub Actions：`Daily AI report - collect` 计划在中国时间 08:00 采集公开来源并保存到 `daily-report-staging`；`Daily AI report - publish` 计划在中国时间 09:00 仅把当天的日报和快照推送到 `main`，保留其他日期的文件。**GitHub 定时触发不保证准点，本仓库已出现数小时延迟。** 可在仓库的 **Actions** 页面手动触发采集，待完成后再触发发布。
+
+两阶段串行执行，先同步最新 main；main 或 staging 已有当天报告和快照时跳过采集，main 已有当天两份文件时跳过发布。跳过与是否有 AIGCNEWS 补充无关。采集使用 main 的源码和历史快照，只将当天产物提交到 staging，通过普通推送保留其历史；提交中记录生成时的 main 版本。发布前重新检查远端，若 main 已前进或待发布文件被修改则停止，重新同步核验后再运行。
 
 GitHub Actions 使用内置 `GITHUB_TOKEN` 访问公开 API，不需要额外配置个人 Token。
 
