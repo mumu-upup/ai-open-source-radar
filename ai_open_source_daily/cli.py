@@ -160,6 +160,10 @@ def _read_feed_items(
 def run(root: Path, day: date, offline: bool, limit: int) -> Path:
     config = _load_config(root)
     store = SnapshotStore(root / "data" / "snapshots")
+    report_path = root / "reports" / (day.isoformat() + ".md")
+    snapshot_path = store.root / (day.isoformat() + ".json")
+    if not offline and report_path.is_file() and snapshot_path.is_file():
+        return report_path
     warnings: List[str] = []
     generated_at = local_now()
     feed_items: List[FeedItem] = []
@@ -224,7 +228,6 @@ def run(root: Path, day: date, offline: bool, limit: int) -> Path:
         current_data_available=current_data_available,
         snapshot_day=snapshot_day,
     )
-    report_path = root / "reports" / (day.isoformat() + ".md")
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(report, encoding="utf-8")
     return report_path
