@@ -74,6 +74,11 @@ jobs:
           test -s "reports/$report_day.md"
           test -s "data/snapshots/$report_day.json"
 
+      - name: Validate report and snapshot semantics
+        if: steps.existing.outputs.complete != 'true'
+        run: |
+          python -m ai_open_source_daily.validation --root . --date "${{ steps.existing.outputs.day }}"
+
       - name: Save collected files to staging branch
         if: steps.existing.outputs.complete != 'true'
         run: |

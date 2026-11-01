@@ -70,6 +70,22 @@ class WorkflowTests(unittest.TestCase):
         )
         return output.read_text(encoding="utf-8")
 
+    def test_collection_and_publish_validate_report_snapshot_pairs(self):
+        collect_text = (WORKFLOWS / "daily-report-collect.yml").read_text(encoding="utf-8")
+        publish_text = (WORKFLOWS / "daily-report-publish.yml").read_text(encoding="utf-8")
+        collect = workflow_script("daily-report-collect.yml", "Validate report and snapshot semantics")
+        publish = workflow_script("daily-report-publish.yml", "Validate report and snapshot semantics")
+        self.assertIn("python -m ai_open_source_daily.validation --root . --date", collect)
+        self.assertIn("python -m ai_open_source_daily.validation --root . --date", publish)
+        self.assertLess(
+            collect_text.index("- name: Validate report and snapshot semantics"),
+            collect_text.index("- name: Save collected files to staging branch"),
+        )
+        self.assertLess(
+            publish_text.index("- name: Validate report and snapshot semantics"),
+            publish_text.index("- name: Publish report to main"),
+        )
+
     def test_collection_preserves_staging_report_without_aigcnews_pick(self):
         self.git(self.source, "checkout", "-b", "daily-report-staging")
         self.write_pair(self.source, self.day)
