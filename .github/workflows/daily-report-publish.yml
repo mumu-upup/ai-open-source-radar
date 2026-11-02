@@ -64,6 +64,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate report and snapshot semantics
+        if: steps.published.outputs.complete != 'true'
+        run: |
+          python -m ai_open_source_daily.validation --root . --date "${{ steps.published.outputs.day }}"
+
       - name: Test synchronized source
         if: steps.published.outputs.complete != 'true'
         run: python -m unittest discover -s tests -v
