@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from html import unescape
 import json
 import re
 from typing import List, Optional
+from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree
 
 from .models import FeedItem
@@ -19,6 +21,10 @@ _DEEPSEEK_SECTION_RE = re.compile(
 )
 _AI_EVENT_RE = re.compile(
     r"\b(ai|artificial intelligence|machine learning|llm|agent|model|inference|rag|diffusion|embedding|vision|voice|tts|stt|generative|openai|gpt|chatgpt|codex|anthropic|claude|gemini|glm|kimi|deepseek|qwen|llama|mistral|copilot|mcp|multimodal|computer-use|hermes|gemma|grok|phi|minimax|jev)\b",
+    re.I,
+)
+_HERMES_PIPELINE_TAG_RE = re.compile(
+    r"/nousresearch/hermes-agent/releases/tag/(?:abandoned-)?rc\.\d+-v\d[^/]*",
     re.I,
 )
 
@@ -48,6 +54,46 @@ def _parse_date(value: str) -> Optional[datetime]:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _is_hermes_pipeline_tag(url: str, summary: str) -> bool:
+    """Exclude known release-attempt metadata, not normal RC release notes."""
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
+    if parsed.hostname != "github.com" or not _HERMES_PIPELINE_TAG_RE.fullmatch(unquote(parsed.path)):
+        return False
+    markup = unescape(summary)
+    block_end = re.search(r"</(?:pre|code|p|div)\s*>", markup, re.I)
+    if block_end and _TAG_RE.sub("", markup[block_end.end():]).strip():
+        return False  # Preserve any human notes following the metadata block.
+    metadata = _TAG_RE.sub("", markup).strip()
+    try:
+        payload, end = json.JSONDecoder().raw_decode(metadata)
+    except ValueError:
+        # GitHub abbreviates some tag messages with an ellipsis. Otherwise
+        # preserve malformed content rather than guessing that it is metadata.
+        if not metadata.endswith(("…", "...")):
+            return False
+        prefix = metadata[:-1] if metadata.endswith("…") else metadata[:-3]
+        if "…" in prefix or "..." in prefix:
+            return False  # Text after an earlier truncation is not metadata alone.
+    else:
+        return bool(
+            not metadata[end:].strip()
+            and isinstance(payload, dict)
+            and type(payload.get("attempt")) is int
+            and (payload.get("autopublish") is False or isinstance(payload.get("attemptRef"), str))
+        )
+    return bool(
+        metadata.startswith("{")
+        and re.search(r'"attempt"\s*:\s*\d+\b', metadata)
+        and (
+            re.search(r'"autopublish"\s*:\s*false\b', metadata)
+            or re.search(r'"attemptRef"\s*:\s*"', metadata)
+        )
+    )
 
 
 class FeedReader:
@@ -85,6 +131,8 @@ class FeedReader:
             if not title or not parsed or parsed < since or (until is not None and parsed >= until):
                 continue
             summary = _child_text(node, ["description", "summary", "content"])
+            if _is_hermes_pipeline_tag(url, summary):
+                continue
             if ai_only and not _AI_EVENT_RE.search("%s %s" % (title, summary)):
                 continue
             key = url or title

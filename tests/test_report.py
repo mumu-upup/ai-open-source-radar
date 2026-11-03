@@ -6,6 +6,23 @@ from ai_open_source_daily.report import render_report
 
 
 class ReportTests(unittest.TestCase):
+    def test_hermes_summary_does_not_infer_capabilities_from_product_name(self):
+        event = FeedItem("v0.22.6", "https://github.com/NousResearch/hermes-agent/releases/tag/v0.22.6",
+                         "2026-11-02T10:00:00+00:00", "Release notes", "Hermes Agent Release")
+        report = render_report(date(2026, 11, 3), datetime(2026, 11, 3, tzinfo=timezone.utc),
+                               [], [], [event], [])
+        self.assertIn("更新线索", report)
+        self.assertNotIn("重点关注自主任务执行、记忆和工具调用能力", report)
+
+    def test_hermes_canary_summary_marks_release_status_as_unverified(self):
+        event = FeedItem("v0.22.5+canary.20261102T065013Z", "https://github.com/NousResearch/hermes-agent/releases/tag/v0.22.5%2Bcanary.20261102T065013Z",
+                         "2026-11-02T06:50:14+00:00", "Hermes Agent canary 20261102T065013Z", "Hermes Agent Release")
+        report = render_report(date(2026, 11, 3), datetime(2026, 11, 3, tzinfo=timezone.utc),
+                               [], [], [event], [])
+        self.assertIn("canary 构建线索", report)
+        self.assertIn("发布状态与具体功能变化待核验", report)
+        self.assertNotIn("Hermes Agent 发布更新", report)
+
     def test_render_report_contains_delta_and_baseline_sections(self):
         repo = RepoSnapshot("a/ai", "AI", "https://github.com/a/ai", "demo", 120, 5, None, None, ["llm"], False, False)
         text = render_report(
