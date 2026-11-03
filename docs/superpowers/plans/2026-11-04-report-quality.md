@@ -23,13 +23,13 @@
 
 **Interfaces:** `FeedReader.read` and `render_report` retain their signatures; add `_is_hermes_pipeline_tag(url: str, summary: str) -> bool` inside feeds.py.
 
-- [ ] Update the previous-day and multiday tests to require both table headers to say “两次快照净增”, with unchanged +25 values and comparison dates. Add a negative-delta case.
-- [ ] Add Atom fixtures for rc.3-v0.22.6 with truncated attempt/autopublish JSON and abandoned-rc.2-v0.22.6 with encoded attemptRef JSON. Assert neither reaches rendered news/counts.
-- [ ] Add preservation cases for normal RC notes, normal Hermes releases, canary, other repositories/hosts and malformed URLs; add canary and stable summary assertions that reject unsupported capability claims.
-- [ ] Run `python3 -m unittest tests.test_report_freshness tests.test_collectors tests.test_report -v`; confirm failures are the documented behavior mismatches.
-- [ ] Implement the predicate: parse URL safely; require github.com and the Hermes rc tag path; strip markup/unescape summary; require a JSON-object prefix, numeric attempt and autopublish=false or attemptRef string fields. Call it before feed deduplication/appending.
-- [ ] Set `growth_label = "两次快照净增"`; explain the snapshot interval limitation. Make Hermes summaries neutral, with an explicit canary caveat. Update README terminology and narrow filter scope.
-- [ ] Run the focused tests and full `python3 -m unittest discover -s tests -v`, then report/snapshot validation for 2026-11-03 and `git diff --check`.
+- [x] Update the previous-day and multiday tests to require both table headers to say “两次快照净增”, with unchanged +25 values and comparison dates. Add a negative-delta case.
+- [x] Add Atom fixtures for rc.3-v0.22.6 with truncated attempt/autopublish JSON and abandoned-rc.2-v0.22.6 with encoded attemptRef JSON. Assert neither reaches rendered news/counts.
+- [x] Add preservation cases for normal RC notes, normal Hermes releases, canary, other repositories/hosts and malformed URLs; add canary and stable summary assertions that reject unsupported capability claims.
+- [x] Run `python3 -m unittest tests.test_report_freshness tests.test_collectors tests.test_report -v`; confirm failures are the documented behavior mismatches.
+- [x] Implement the predicate: parse URL safely; require github.com and the Hermes rc tag path; strip markup/unescape summary; require a JSON-object prefix, numeric attempt and autopublish=false or attemptRef string fields. Call it before feed deduplication/appending.
+- [x] Set `growth_label = "两次快照净增"`; explain the snapshot interval limitation. Make Hermes summaries neutral, with an explicit canary caveat. Update README terminology and narrow filter scope.
+- [x] Run the focused tests and full `python3 -m unittest discover -s tests -v`, then report/snapshot validation for 2026-11-03 and `git diff --check`.
 
 ## Task 2: Review and publish verified source
 

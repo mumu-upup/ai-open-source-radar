@@ -6,13 +6,15 @@ AI 开源雷达每天生成一份“昨天 AI 发生了什么”的 Markdown 简
 
 - 昨日 AI 大事：来自 OpenAI、NVIDIA、TechCrunch、GitHub、Hugging Face、Qwen、Mistral 等公开 RSS，以及 Codex、Claude、Gemini、GLM、Kimi、DeepSeek、Hermes、Qwen、Llama、Mistral、Gemma、Grok、Pi、Jev 和 OpenHands、Cline、Aider、SWE-agent、OpenCode、Kilo Code 等官方或主仓库更新源；同时扫描 Hugging Face 上 Qwen、Hermes、Llama、Mistral、Gemma、Phi、MiniMax、Yi 的模型仓库活动，带来源、日期、链接和摘要。
 - Star 增长明显的项目：昨天快照到今天快照的 Star 净增，标记新进入追踪的项目。
-- 总 Star 排名前 10：当前最受欢迎的项目，同时显示 24h 净增和排名变化。
+- 总 Star 排名前 10：当前最受欢迎的项目，同时显示两次快照净增和排名变化。
 - GitHub Trending AI 信号：当天热度参考，不等于总 Star 排名。
 - 一句话观察、基线说明和采集警告。
 
 日报采用中英文并列展示：项目和 Trending 表格同时提供中文简介与仓库原始英文简介；AI 动态同时提供中文概述和 RSS 原文摘要。中文读者可以先看中文结论，习惯英文的读者可以直接核对原文。
 
 “昨日 AI 大事”按中国时区的自然日统计（昨天 00:00–24:00），最多展示 20 条并按发布时间倒序去重。重点产品区覆盖闭源模型、开源模型和编程 Agent；如果某个产品当天没有公开更新，会明确显示并继续监控，不会编造条目。Hugging Face 条目描述的是模型仓库活动：只有 `createdAt` 和 `lastModified` 都落在窗口内时才标记为新模型仓库，否则写成仓库更新，不把代码或权重同步误报成模型发布。Jev 的官方模型入口是 TypeSafe AI，`browser-use/jev-ultrafast` 单独标为社区集成；Pi 这里监控的是开源 Pi Agent Harness，和 Inflection 的 Pi 助手分开标注。
+
+Hermes 订阅中的 `rc.N-v…`、`abandoned-rc.N-v…` 条目，只有在链接属于该官方 GitHub 仓库且摘要为发布流程元数据时才过滤；正常 RC 发布说明仍会保留。canary 仅作为构建线索，发布状态和具体功能变化须核验，不能从标签名称推断新能力。
 
 ### 补充选题来源：AIGCNEWS
 
@@ -40,7 +42,7 @@ python3 -m ai_open_source_daily --root . --date 2026-10-01 --offline
 
 候选仓库按 `config/sources.json` 中的 AI topics 搜索，排除 fork、归档仓库和低于 50 Star 的仓库。匿名 GitHub API 有较低限额；如需扩大覆盖面，可在运行环境设置 `GITHUB_TOKEN`。Token 只用于请求 GitHub，不会写入日报或快照。
 
-日报中的新增 Star 是采集快照的差值，因此会在 Star 被取消时体现为净减少。对比快照相隔超过一天时显示“区间净增”，不能解读为 24 小时增长。采集失败使用历史快照时，明确标注快照日期，不计算今日净增或排名变化。GitHub 搜索限流会按照服务端响应头有限等待重试；RSS 来源失败会写入日报警告，不会阻止项目榜生成。
+日报中的新增 Star 是采集快照的差值，因此会在 Star 被取消时体现为净减少。统一显示“两次快照净增”，对比日期相邻也不代表实际采集间隔为 24 小时；未按时间折算增量。采集失败使用历史快照时，明确标注快照日期，不计算今日净增或排名变化。GitHub 搜索限流会按照服务端响应头有限等待重试；RSS 来源失败会写入日报警告，不会阻止项目榜生成。
 
 ## GitHub Actions 每天 08:00 采集、09:00 推送
 

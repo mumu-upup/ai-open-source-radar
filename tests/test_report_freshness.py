@@ -49,15 +49,29 @@ class ReportFreshnessTests(unittest.TestCase):
                                [DailyRepo(self.repo, 25, None, False)], [], [], [],
                                top_total=[DailyRepo(self.repo, 25, None, False)],
                                comparison_day=date(2026, 10, 1))
-        self.assertIn("区间净增", report)
+        self.assertEqual(report.count("| 两次快照净增 |"), 2)
         self.assertNotIn("24h 净增", report)
         self.assertIn("2026-10-01 → 2026-10-04", report)
+        self.assertEqual(report.count("| +25 |"), 2)
 
-    def test_previous_day_growth_retains_daily_label(self):
+    def test_previous_day_dates_do_not_imply_24_hour_sampling(self):
         report = render_report(date(2026, 10, 4), datetime(2026, 10, 4, tzinfo=timezone.utc),
                                [DailyRepo(self.repo, 25, None, False)], [], [], [],
+                               top_total=[DailyRepo(self.repo, 25, None, False)],
                                comparison_day=date(2026, 10, 3))
-        self.assertIn("24h 净增", report)
+        self.assertEqual(report.count("| 两次快照净增 |"), 2)
+        self.assertNotIn("24h 净增", report)
+        self.assertIn("实际采集间隔不保证为 24 小时", report)
+        self.assertIn("2026-10-03 → 2026-10-04", report)
+        self.assertEqual(report.count("| +25 |"), 2)
+
+    def test_snapshot_label_preserves_negative_delta(self):
+        report = render_report(date(2026, 10, 4), datetime(2026, 10, 4, tzinfo=timezone.utc),
+                               [], [], [], [],
+                               top_total=[DailyRepo(self.repo, -7, None, False)],
+                               comparison_day=date(2026, 10, 3))
+        self.assertIn("| 两次快照净增 |", report)
+        self.assertIn("| 100 | -7 |", report)
 
 
 if __name__ == "__main__":

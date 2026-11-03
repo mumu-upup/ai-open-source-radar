@@ -1,8 +1,64 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import unittest
+from xml.sax.saxutils import escape
 
 from ai_open_source_daily.feeds import FeedReader
 from ai_open_source_daily.github_client import TrendingClient, merge_repositories
+from ai_open_source_daily.report import render_report
+
+
+class HermesPipelineFeedTests(unittest.TestCase):
+    prefix = "https://github.com/NousResearch/hermes-agent/releases/tag/"
+    metadata = '{"attempt":3,"autopublish":false,"claimEpoch":1793635086,"commit":"f0…'
+
+    def read_entries(self, rows):
+        entries = []
+        for title, url, summary in rows:
+            entries.append(
+                '<entry><title>%s</title><link href="%s"/>'
+                '<updated>2026-11-02T10:00:00Z</updated>'
+                '<content type="html">%s</content></entry>'
+                % (escape(title), escape(url), escape(summary))
+            )
+        return FeedReader().read(
+            '<feed xmlns="http://www.w3.org/2005/Atom">%s</feed>' % "".join(entries),
+            datetime(2026, 11, 1, 16, tzinfo=timezone.utc),
+            source="Hermes Agent Release",
+            until=datetime(2026, 11, 2, 16, tzinfo=timezone.utc),
+        )
+
+    def test_pipeline_tags_are_excluded_before_news_counts(self):
+        items = self.read_entries([
+            ("rc.3-v0.22.6", self.prefix + "rc.3-v0.22.6", "<pre>" + self.metadata + "</pre>"),
+            ("abandoned-rc.2-v0.22.6", self.prefix + "abandoned-rc.2-v0.22.6",
+             '<p>{&quot;attempt&quot;:2,&quot;attemptRef&quot;:&quot;rc.2-v0.22.6&quot;,&quot;schema&quot;:1}</p>'),
+            ("v0.22.6", self.prefix + "v0.22.6", "Fix tool timeout handling."),
+        ])
+        self.assertEqual([item.title for item in items], ["v0.22.6"])
+        report = render_report(date(2026, 11, 3), datetime(2026, 11, 3, tzinfo=timezone.utc),
+                               [], [], items, [], comparison_day=date(2026, 11, 2))
+        self.assertIn("**Hermes**：昨日收录 1 条", report)
+        self.assertIn("收录 1 条 AI 动态", report)
+        self.assertNotIn("rc.3-v0.22.6", report)
+        self.assertNotIn("abandoned-rc", report)
+
+    def test_normal_release_candidates_and_unrelated_entries_are_preserved(self):
+        cases = [
+            (self.prefix + "rc.3-v0.22.6", "Fix tool timeout handling."),
+            (self.prefix + "rc.3-v0.22.6", 'Changes include {"attempt":3,"autopublish":false} diagnostics.'),
+            (self.prefix + "rc.3-v0.22.6", '{"attempt":3,"autopublish":true}'),
+            (self.prefix + "v0.22.6-rc.3", self.metadata),
+            (self.prefix + "v0.22.5%2Bcanary.20261102T065013Z", "Hermes Agent canary 20261102T065013Z"),
+            (self.prefix.replace("NousResearch/hermes-agent", "other/agent") + "rc.3-v0.22.6", self.metadata),
+            (self.prefix.replace("github.com", "example.com") + "rc.3-v0.22.6", self.metadata),
+            (self.prefix.replace("releases/tag", "discussions") + "rc.3-v0.22.6", self.metadata),
+            ("https://[malformed", self.metadata),
+        ]
+        for url, summary in cases:
+            with self.subTest(url=url, summary=summary):
+                items = self.read_entries([("rc.3-v0.22.6", url, summary)])
+                self.assertEqual(len(items), 1)
+                self.assertEqual(items[0].url, url)
 
 
 class CollectorTests(unittest.TestCase):

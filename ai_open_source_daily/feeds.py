@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from html import unescape
 import json
 import re
 from typing import List, Optional
+from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree
 
 from .models import FeedItem
@@ -19,6 +21,10 @@ _DEEPSEEK_SECTION_RE = re.compile(
 )
 _AI_EVENT_RE = re.compile(
     r"\b(ai|artificial intelligence|machine learning|llm|agent|model|inference|rag|diffusion|embedding|vision|voice|tts|stt|generative|openai|gpt|chatgpt|codex|anthropic|claude|gemini|glm|kimi|deepseek|qwen|llama|mistral|copilot|mcp|multimodal|computer-use|hermes|gemma|grok|phi|minimax|jev)\b",
+    re.I,
+)
+_HERMES_PIPELINE_TAG_RE = re.compile(
+    r"/nousresearch/hermes-agent/releases/tag/(?:abandoned-)?rc\.\d+-v\d[^/]*",
     re.I,
 )
 
@@ -48,6 +54,26 @@ def _parse_date(value: str) -> Optional[datetime]:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _is_hermes_pipeline_tag(url: str, summary: str) -> bool:
+    """Exclude known release-attempt metadata, not normal RC release notes."""
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
+    if parsed.hostname != "github.com" or not _HERMES_PIPELINE_TAG_RE.fullmatch(unquote(parsed.path)):
+        return False
+    metadata = unescape(_TAG_RE.sub("", summary)).strip()
+    # Atom may truncate these tag messages, so requiring valid JSON loses them.
+    return bool(
+        metadata.startswith("{")
+        and re.search(r'"attempt"\s*:\s*\d+\b', metadata)
+        and (
+            re.search(r'"autopublish"\s*:\s*false\b', metadata)
+            or re.search(r'"attemptRef"\s*:\s*"', metadata)
+        )
+    )
 
 
 class FeedReader:
@@ -85,6 +111,8 @@ class FeedReader:
             if not title or not parsed or parsed < since or (until is not None and parsed >= until):
                 continue
             summary = _child_text(node, ["description", "summary", "content"])
+            if _is_hermes_pipeline_tag(url, summary):
+                continue
             if ai_only and not _AI_EVENT_RE.search("%s %s" % (title, summary)):
                 continue
             key = url or title

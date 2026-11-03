@@ -55,7 +55,7 @@ _PRODUCT_SOURCE_SUMMARIES_ZH = {
     "glm": "GLM 发布版本更新，具体改动和修复请查看英文发布说明。",
     "kimi": "Kimi 发布版本更新，具体改动和修复请查看英文发布说明。",
     "deepseek": "DeepSeek 发布版本更新，具体改动和修复请查看英文发布说明。",
-    "hermes": "Hermes Agent 发布更新，重点关注自主任务执行、记忆和工具调用能力。",
+    "hermes": "Hermes Agent 来源收录更新线索，具体改动及发布状态请核对原文。",
     "qwen": "Qwen 模型或工具发布更新，具体改动请查看英文发布说明。",
     "llama": "Llama 模型生态发布更新，具体改动请查看英文发布说明。",
     "mistral": "Mistral 模型或开发工具发布更新，具体改动请查看英文发布说明。",
@@ -184,6 +184,8 @@ def _zh_event_summary(item: FeedItem) -> str:
     for marker, summary in _PRODUCT_SOURCE_SUMMARIES_ZH.items():
         if marker in source_lowered:
             title_lowered = (item.title or "").lower()
+            if marker == "hermes" and "canary" in title_lowered:
+                return "Hermes Agent canary 构建线索，发布状态与具体功能变化待核验。"
             if any(tag in title_lowered for tag in ("alpha", "beta", "preview", "nightly", "experimental", " rc")):
                 return summary + "当前标记为预发布版本。"
             return summary
@@ -294,7 +296,7 @@ def render_report(
     trending = trending or []
     top_total = top_total or []
     comparison_text = comparison_day.isoformat() if comparison_day else "暂无前一日快照（基线建立中）"
-    growth_label = "区间净增" if comparison_day and (day - comparison_day).days != 1 else "24h 净增"
+    growth_label = "两次快照净增"
     star_status = "> Star 对比：%s → %s；正数表示净增，负数表示净减少。" % (comparison_text, day.isoformat())
     if not current_data_available:
         star_status = "> 今日 Star 数据不可用；%s。净增与排名变化暂不计算。" % (
@@ -430,7 +432,7 @@ def render_report(
         "## 数据说明",
         "",
         "- 项目候选按 AI 相关 GitHub topics 合并去重，排除 fork、归档仓库和低于最低 Star 阈值的仓库。",
-        "- Star 增长是固定采集时刻的快照净差；首次出现的项目不会伪造增量。",
+        "- Star 增长是两次快照的净差，实际采集间隔不保证为 24 小时，未折算为严格 24 小时增量；首次出现的项目不会伪造增量。",
         "- AI 动态按 Asia/Shanghai 自然日（昨日 00:00–24:00）从配置的公开 RSS 和官方 Release 源统计；Trending 是独立的当天热度信号。",
     ])
     if warnings:
