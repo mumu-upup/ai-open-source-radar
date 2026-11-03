@@ -63,12 +63,15 @@ class HermesPipelineFeedTests(unittest.TestCase):
 
     def test_rc_metadata_followed_by_real_release_notes_is_preserved(self):
         for prefix in ('{"attempt":3,"autopublish":false}', self.metadata):
-            with self.subTest(prefix=prefix):
-                summary = ('<pre>%s</pre><h2>What changed</h2>'
-                           '<p>Fixed tool timeout handling and added retries.</p>') % prefix
-                items = self.read_entries([("rc.3-v0.22.6", self.prefix + "rc.3-v0.22.6", summary)])
-                self.assertEqual(len(items), 1)
-                self.assertIn("Fixed tool timeout handling", items[0].summary)
+            for ending in (".", "…", "..."):
+                for markup in (True, False):
+                    with self.subTest(prefix=prefix, ending=ending, markup=markup):
+                        notes = "Fixed tool timeout handling and added retries" + ending
+                        summary = ("<pre>%s</pre><h2>What changed</h2><p>%s</p>" % (prefix, notes)
+                                   if markup else prefix + "\nWhat changed\n" + notes)
+                        items = self.read_entries([("rc.3-v0.22.6", self.prefix + "rc.3-v0.22.6", summary)])
+                        self.assertEqual(len(items), 1)
+                        self.assertIn("Fixed tool timeout handling", items[0].summary)
 
 
 class CollectorTests(unittest.TestCase):

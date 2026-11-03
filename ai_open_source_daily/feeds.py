@@ -64,7 +64,11 @@ def _is_hermes_pipeline_tag(url: str, summary: str) -> bool:
         return False
     if parsed.hostname != "github.com" or not _HERMES_PIPELINE_TAG_RE.fullmatch(unquote(parsed.path)):
         return False
-    metadata = unescape(_TAG_RE.sub("", summary)).strip()
+    markup = unescape(summary)
+    block_end = re.search(r"</(?:pre|code|p|div)\s*>", markup, re.I)
+    if block_end and _TAG_RE.sub("", markup[block_end.end():]).strip():
+        return False  # Preserve any human notes following the metadata block.
+    metadata = _TAG_RE.sub("", markup).strip()
     try:
         payload, end = json.JSONDecoder().raw_decode(metadata)
     except ValueError:
@@ -72,6 +76,9 @@ def _is_hermes_pipeline_tag(url: str, summary: str) -> bool:
         # preserve malformed content rather than guessing that it is metadata.
         if not metadata.endswith(("…", "...")):
             return False
+        prefix = metadata[:-1] if metadata.endswith("…") else metadata[:-3]
+        if "…" in prefix or "..." in prefix:
+            return False  # Text after an earlier truncation is not metadata alone.
     else:
         return bool(
             not metadata[end:].strip()
