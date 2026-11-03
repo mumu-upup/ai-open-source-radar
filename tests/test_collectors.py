@@ -29,6 +29,7 @@ class HermesPipelineFeedTests(unittest.TestCase):
 
     def test_pipeline_tags_are_excluded_before_news_counts(self):
         items = self.read_entries([
+            ("rc.1-v0.22.6", self.prefix + "rc.1-v0.22.6", '{"attempt":1,"autopublish":false}'),
             ("rc.3-v0.22.6", self.prefix + "rc.3-v0.22.6", "<pre>" + self.metadata + "</pre>"),
             ("abandoned-rc.2-v0.22.6", self.prefix + "abandoned-rc.2-v0.22.6",
              '<p>{&quot;attempt&quot;:2,&quot;attemptRef&quot;:&quot;rc.2-v0.22.6&quot;,&quot;schema&quot;:1}</p>'),
@@ -59,6 +60,15 @@ class HermesPipelineFeedTests(unittest.TestCase):
                 items = self.read_entries([("rc.3-v0.22.6", url, summary)])
                 self.assertEqual(len(items), 1)
                 self.assertEqual(items[0].url, url)
+
+    def test_rc_metadata_followed_by_real_release_notes_is_preserved(self):
+        for prefix in ('{"attempt":3,"autopublish":false}', self.metadata):
+            with self.subTest(prefix=prefix):
+                summary = ('<pre>%s</pre><h2>What changed</h2>'
+                           '<p>Fixed tool timeout handling and added retries.</p>') % prefix
+                items = self.read_entries([("rc.3-v0.22.6", self.prefix + "rc.3-v0.22.6", summary)])
+                self.assertEqual(len(items), 1)
+                self.assertIn("Fixed tool timeout handling", items[0].summary)
 
 
 class CollectorTests(unittest.TestCase):

@@ -65,7 +65,20 @@ def _is_hermes_pipeline_tag(url: str, summary: str) -> bool:
     if parsed.hostname != "github.com" or not _HERMES_PIPELINE_TAG_RE.fullmatch(unquote(parsed.path)):
         return False
     metadata = unescape(_TAG_RE.sub("", summary)).strip()
-    # Atom may truncate these tag messages, so requiring valid JSON loses them.
+    try:
+        payload, end = json.JSONDecoder().raw_decode(metadata)
+    except ValueError:
+        # GitHub abbreviates some tag messages with an ellipsis. Otherwise
+        # preserve malformed content rather than guessing that it is metadata.
+        if not metadata.endswith(("…", "...")):
+            return False
+    else:
+        return bool(
+            not metadata[end:].strip()
+            and isinstance(payload, dict)
+            and type(payload.get("attempt")) is int
+            and (payload.get("autopublish") is False or isinstance(payload.get("attemptRef"), str))
+        )
     return bool(
         metadata.startswith("{")
         and re.search(r'"attempt"\s*:\s*\d+\b', metadata)
