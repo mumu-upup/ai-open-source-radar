@@ -16,7 +16,7 @@ class SourceConfigTests(unittest.TestCase):
             if item.get("url") == "https://linux.do/t/topic/211016.rss"
         )
         self.assertEqual(source["name"], "Linux.do 主题线索")
-        self.assertFalse(source["ai_only"])
+        self.assertTrue(source["ai_only"])
 
     def test_fetch_feed_falls_back_to_curl_for_cloudflare_403(self):
         error = HTTPError(

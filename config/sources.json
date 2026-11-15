@@ -70,7 +70,7 @@
     {"name": "DeepSeek API Changelog", "url": "https://api-docs.deepseek.com/updates/", "format": "deepseek_html", "ai_only": false},
     {"name": "NVIDIA Developer AI", "url": "https://developer.nvidia.com/blog/feed/", "ai_only": false},
     {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "ai_only": true},
-    {"name": "Linux.do 主题线索", "url": "https://linux.do/t/topic/211016.rss", "ai_only": false},
+    {"name": "Linux.do 主题线索", "url": "https://linux.do/t/topic/211016.rss", "ai_only": true},
     {"name": "OpenAI Codex Release", "url": "https://github.com/openai/codex/releases.atom", "ai_only": false},
     {"name": "Anthropic Claude Code Release", "url": "https://github.com/anthropics/claude-code/releases.atom", "ai_only": false},
     {"name": "Google Gemini CLI Release", "url": "https://github.com/google-gemini/gemini-cli/releases.atom", "ai_only": false},

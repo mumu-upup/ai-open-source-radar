@@ -4,7 +4,7 @@ AI 开源雷达每天生成一份“昨天 AI 发生了什么”的 Markdown 简
 
 每期日报包含：
 
-- 昨日 AI 大事：来自 OpenAI、NVIDIA、TechCrunch、GitHub、Hugging Face、Qwen、Mistral 等公开 RSS，以及 Codex、Claude、Gemini、GLM、Kimi、DeepSeek、Hermes、Qwen、Llama、Mistral、Gemma、Grok、Pi、Jev 和 OpenHands、Cline、Aider、SWE-agent、OpenCode、Kilo Code 等官方或主仓库更新源；同时扫描 Hugging Face 上 Qwen、Hermes、Llama、Mistral、Gemma、Phi、MiniMax、Yi 的模型仓库活动，带来源、日期、链接和摘要。
+- 昨日 AI 大事：来自 OpenAI、NVIDIA、TechCrunch、GitHub、Hugging Face、Qwen、Mistral、Linux.do 主题 RSS 等公开 RSS，以及 Codex、Claude、Gemini、GLM、Kimi、DeepSeek、Hermes、Qwen、Llama、Mistral、Gemma、Grok、Pi、Jev 和 OpenHands、Cline、Aider、SWE-agent、OpenCode、Kilo Code 等官方或主仓库更新源；同时扫描 Hugging Face 上 Qwen、Hermes、Llama、Mistral、Gemma、Phi、MiniMax、Yi 的模型仓库活动，带来源、日期、链接和摘要。
 - Star 增长明显的项目：昨天快照到今天快照的 Star 净增，标记新进入追踪的项目。
 - 总 Star 排名前 10：当前最受欢迎的项目，同时显示两次快照净增和排名变化。
 - GitHub Trending AI 信号：当天热度参考，不等于总 Star 排名。
@@ -21,6 +21,10 @@ Hermes 订阅中的 `rc.N-v…`、`abandoned-rc.N-v…` 条目，只有在链接
 聊天定时整理还参考 [AIGCNEWS](https://aigcnews.cn/) 及其 [公开 RSS](https://aigcnews.cn/api/feed.xml)，每天最多选 1 条 AI 新闻、模型或 Agent 线索。追溯原始来源、核对发布日期和去重后，以一句中文摘要说明事件，并保留原文链接；来源归属注明“AIGCNEWS 线索／原始来源”。若没有可核实的合适内容则不补选；未核实内容不作为已确认更新，也不凑数。
 
 该站是聚合服务，公开 RSS 混有 GitHub 项目、论文、社交动态和一般热点，部分日期是聚合或采集时间，摘要也可能由 AI 生成。整理时去除订阅宣传，区分原文发布时间、事件日期和聚合时间；若无法核实昨日窗口，明确说明日期待核验。项目 Star 增长继续使用本仓库独立快照。AIGCNEWS 线索若已被主日报收录则不重复；只有核实后仍未覆盖的重要内容才补入。GitHub Actions 的自动 RSS 列表尚未直接接入这个混合订阅，补充筛选由聊天整理任务完成；该任务未运行时，云端日报不保证包含 AIGCNEWS 线索。
+
+### 长期补充来源：Linux.do 主题
+
+采集器长期登记 [Linux.do 主题 RSS](https://linux.do/t/topic/211016.rss) 作为补充线索源，来源名标记为“Linux.do 主题线索”，并启用 AI 关键词筛选；主题中的普通社区讨论不会直接计入 AI 动态，仍需按北京时间窗口、原始链接和事件内容复核。若站点的 Cloudflare 策略拒绝 Python 请求，采集器会对该 403 响应用 curl 读取公开 RSS；两种方式均失败时只写入来源警告，不影响项目快照生成。
 
 ## 运行
 
