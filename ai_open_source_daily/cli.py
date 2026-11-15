@@ -1,5 +1,6 @@
 import argparse
 import json
+import subprocess
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -45,8 +46,34 @@ def _load_config(root: Path) -> Dict:
 
 def _fetch_feed(url: str) -> str:
     request = Request(url, headers={"User-Agent": "ai-open-source-daily/1.0"})
-    with urlopen(request, timeout=20) as response:
-        return response.read().decode("utf-8", errors="replace")
+    try:
+        with urlopen(request, timeout=20) as response:
+            return response.read().decode("utf-8", errors="replace")
+    except HTTPError as error:
+        # Some Discourse/Cloudflare hosts reject Python's TLS fingerprint while
+        # serving the same public RSS to curl. Keep the normal urllib path and
+        # use curl only for this specific access-denied response.
+        if error.code != 403:
+            raise
+        try:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "-fsSL",
+                    "--max-time",
+                    "20",
+                    "-A",
+                    "Mozilla/5.0",
+                    "--",
+                    url,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            raise error
+        return result.stdout.decode("utf-8", errors="replace")
 
 
 def _previous_snapshot(store: SnapshotStore, day: date, days: int = 7) -> Tuple[Optional[date], List[RepoSnapshot]]:
